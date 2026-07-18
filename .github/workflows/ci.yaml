@@ -75,6 +75,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `wrangler types --check` (part of "check"/"build" above) reads var
+      # *names* from an actual .env file to decide what ProcessEnv
+      # declarations to expect — not from the job-level `env:` block above,
+      # which only sets shell environment variables. Without this file,
+      # `--check` always reports worker-configuration.d.ts as out of date
+      # (verified: this is what broke the very first run of this workflow).
+      - name: Write .env for wrangler types
+        run: |
+          cat <<EOF > .env
+          DATABASE_URL=$DATABASE_URL
+          ORIGIN=$ORIGIN
+          BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
+          GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+          GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+          EOF
+
       # Only the "test" task's Vitest "client" project needs a real browser
       # (@vitest/browser-playwright) — installing it for the other three
       # matrix legs would just burn CI time on an unused download.
