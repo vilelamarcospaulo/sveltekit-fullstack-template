@@ -13,14 +13,17 @@ concurrency:
 env:
   # src/lib/server/env.ts's getEnv() validates BETTER_AUTH_SECRET/ORIGIN/
   # GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET on first call and throws if any is
-  # empty, and `wrangler types --check` (part of `pnpm run check`/`build`)
-  # needs these var *names* to exist somewhere for the generated Env type to
-  # match what's committed in worker-configuration.d.ts. CI never talks to
-  # real Google or a real deployed Worker, so dummy non-empty values are
-  # sufficient everywhere. DATABASE_URL matches the Postgres service
-  # container below — nothing in the current test/build pipeline actually
-  # queries it (no integration-vs-real-Postgres test project exists yet —
-  # see CLAUDE.md's "What's deferred"), but it's set for when that lands.
+  # empty. CI never talks to real Google or a real deployed Worker, so dummy
+  # non-empty values are sufficient everywhere. DATABASE_URL matches the
+  # Postgres service container below — nothing in the current test/build
+  # pipeline actually queries it (no integration-vs-real-Postgres test
+  # project exists yet — see CLAUDE.md's "What's deferred"), but it's set
+  # for when that lands.
+  #
+  # NOT read by `wrangler types --check` (part of `pnpm run check`/`build`)
+  # — that's pinned to `--env-file .env.example` instead (see CLAUDE.md's
+  # "Deployment" section for why), so it needs no CI-specific setup here and
+  # produces identical output locally and in CI regardless of this block.
   DATABASE_URL: 'postgres://root:mysecretpassword@localhost:5432/local'
   ORIGIN: 'http://localhost:5173'
   BETTER_AUTH_SECRET: 'ci-dummy-secret-not-used-for-anything-real'
@@ -75,22 +78,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `wrangler types --check` (part of "check"/"build" above) reads var
-      # *names* from an actual .env file to decide what ProcessEnv
-      # declarations to expect — not from the job-level `env:` block above,
-      # which only sets shell environment variables. Without this file,
-      # `--check` always reports worker-configuration.d.ts as out of date
-      # (verified: this is what broke the very first run of this workflow).
-      - name: Write .env for wrangler types
-        run: |
-          cat <<EOF > .env
-          DATABASE_URL=$DATABASE_URL
-          ORIGIN=$ORIGIN
-          BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
-          GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
-          GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
-          EOF
-
       # Only the "test" task's Vitest "client" project needs a real browser
       # (@vitest/browser-playwright) — installing it for the other three
       # matrix legs would just burn CI time on an unused download.
@@ -105,8 +92,8 @@ jobs:
   # (src/worker/, wrangler.queue.jsonc) still bundles cleanly on every
   # change — a `--dry-run` deploy, no real Cloudflare account or credentials
   # needed, nothing is actually deployed.
-  queue-worker:
-    name: queue-worker bundle check
+  worker:
+    name: worker bundle check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

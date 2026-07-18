@@ -18,9 +18,6 @@ export type Organization = {
 export type ValidationResult =
 	{ ok: true; value: Organization } | { ok: false; errors: Partial<Record<Field, string>> };
 
-export type NameValidationResult =
-	{ ok: true; value: { name: string } } | { ok: false; errors: Partial<Record<'name', string>> };
-
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 function validateName(rawName: unknown): { name: string; error?: string } {
@@ -52,7 +49,9 @@ function validateSlug(rawSlug: unknown): { slug: string; error?: string } {
 }
 
 // Validate raw input (from a form) into a clean Organization (name + slug),
-// or a map of per-field errors. Used for the "create organization" flow.
+// or a map of per-field errors. Used for both the "create organization" flow
+// and the "edit organization" flow (/org/[slug]'s updateOrganization action)
+// — the slug is editable in both, not just at creation time.
 export function inputToOrganization(input: Record<string, unknown>): ValidationResult {
 	const errors: Partial<Record<Field, string>> = {};
 
@@ -66,16 +65,6 @@ export function inputToOrganization(input: Record<string, unknown>): ValidationR
 		return { ok: false, errors };
 	}
 	return { ok: true, value: { name, slug } };
-}
-
-// Validate just the name — used for a "rename organization" flow, where the
-// slug is immutable once created.
-export function inputToOrganizationName(input: Record<string, unknown>): NameValidationResult {
-	const { name, error } = validateName(input.name);
-	if (error) {
-		return { ok: false, errors: { name: error } };
-	}
-	return { ok: true, value: { name } };
 }
 
 // Derive a URL-safe slug suggestion from a display name (e.g. to prefill the

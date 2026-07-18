@@ -31,7 +31,7 @@ pnpm run dev        # http://localhost:5173
 | **`/api/profile` JSON API (GET-only) + live demo**     | `src/routes/api/profile/+server.ts`, `src/lib/components/profile-api-demo.svelte`, `src/lib/api-client.ts` | Live: GET returns the correct 401 envelope when unauthenticated; writes go through the profile form's server action, not this API |
 | **`/api/hello` JSON API + live demo on the home page** | `src/routes/api/hello/+server.ts`, `src/lib/components/api-hello-demo.svelte`                              | `check`/`lint`/`test`/`build` clean; mirrors the Next.js sibling template's `/api/hello` route + `ApiHelloDemo` card              |
 | Org multi-tenancy                                      | `src/routes/org/`, `src/lib/server/auth.ts` (organization plugin), `src/lib/components/navbar.svelte`      | `check`/`lint`/`build` clean, DB tables confirmed, redirect-when-unauthenticated confirmed                                        |
-| Cloudflare Queues demo                                 | `src/lib/server/queue.ts`, `src/worker/`, `wrangler.queue.jsonc`                                           | Live: full `job_started → job_completed` log chain exercised locally via the queue worker's local-push simulation                 |
+| Cloudflare Queues demo                                 | `src/lib/server/queue.ts`, `src/worker/`, `wrangler.queue.jsonc`                                           | Live: full `job_started → job_completed` log chain exercised locally via the worker's local-push simulation                       |
 
 All of the above also passed a full `pnpm run check && pnpm run lint && pnpm run test && pnpm run build` sweep on the actual merged/integrated `main` branch, not just in isolation.
 
@@ -46,7 +46,7 @@ All of the above also passed a full `pnpm run check && pnpm run lint && pnpm run
 `.github/workflows/ci.yaml` — added this session. Runs on every push/PR:
 
 - **`app` job** (matrix: `lint`, `check`, `test`, `build`) — against a Postgres service container (currently unused by the test suite itself, wired up for when integration tests land).
-- **`queue-worker` job** — `wrangler deploy --config wrangler.queue.jsonc --dry-run`, confirming the independent consumer Worker still bundles cleanly.
+- **`worker` job** — `wrangler deploy --config wrangler.queue.jsonc --dry-run`, confirming the independent consumer Worker still bundles cleanly.
 
 **Never actually run on GitHub** — there's no remote configured for this repo (it's a fresh local `git init` from earlier in this project's life), so this workflow has only been verified by manually replicating each step locally with the exact same env vars the workflow declares (see the commit that added it for what was checked). First real push to a GitHub remote is the actual first run.
 
@@ -58,8 +58,8 @@ All of the above also passed a full `pnpm run check && pnpm run lint && pnpm run
 
 - `pnpm run build` succeeds (adapter-cloudflare output).
 - `wrangler dev` previews both Workers locally against simulated bindings.
-- The queue worker's `wrangler deploy --dry-run` bundles cleanly with no real account.
-- `pnpm run deploy` / `pnpm run queue-worker:deploy` exist and are the right commands — just never pointed at a real account.
+- The worker's `wrangler deploy --dry-run` bundles cleanly with no real account.
+- `pnpm run deploy` / `pnpm run worker:deploy` exist and are the right commands — just never pointed at a real account.
 
 Concretely blocking a real deploy: `wrangler.jsonc`'s Hyperdrive `id` is still the scaffolded placeholder, the `hello`/`hello-dlq` queues don't exist on any real account, and no secrets (`BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID/SECRET`, `ORIGIN`) are set anywhere Cloudflare can see them. `DEPLOYMENT.md` walks through fixing all three.
 

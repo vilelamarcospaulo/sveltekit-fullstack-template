@@ -75,7 +75,7 @@ Open [http://localhost:5173](http://localhost:5173).
 Two independent Cloudflare Workers — the app (`wrangler.jsonc`, via `@sveltejs/adapter-cloudflare`) and the Cloudflare Queues consumer (`wrangler.queue.jsonc`). See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for the full production runbook (Hyperdrive provisioning, queue creation, secrets, deploy order) — nothing has been deployed to a real Cloudflare account yet, so treat that doc as required reading before your first deploy, not a formality.
 
 ```bash
-pnpm run queue-worker:deploy
+pnpm run worker:deploy
 pnpm run deploy
 ```
 

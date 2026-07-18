@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { afterNavigate, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { authClient, signOut } from '$lib/auth-client';
 	import SignInButton from '$lib/components/sign-in-button.svelte';
@@ -33,6 +33,29 @@
 	// `AuthQueryAtom<T>`.
 	const organizations = authClient.useListOrganizations();
 	const activeOrganization = authClient.useActiveOrganization();
+
+	// Org membership/details can change via a purely SERVER-side mutation
+	// (e.g. the /org/new and /org/[slug] form actions, which call
+	// getAuth(...).api.createOrganization/updateOrganization directly —
+	// never through this browser-side authClient SDK). These nanostore
+	// atoms keep their own client-side cache entirely separate from
+	// SvelteKit's load/invalidate mechanism (unlike handleSwitchOrganization
+	// below, which mutates via the client SDK itself and so updates the
+	// atoms' cache as a side effect of the call). Nothing else tells them to
+	// refetch after such a server-side mutation, even though the redirect
+	// that follows one does rerun SvelteKit's own `load` functions. Calling
+	// `.get()` (plain nanostores API, not the `$`-prefixed auto-subscription
+	// used for rendering below) reads the atom's current value without
+	// creating a new subscription, so this is safe to call outside a
+	// reactive/subscribed context — see node_modules/nanostores's atom
+	// `get()` implementation. `afterNavigate` fires on this component's
+	// mount AND after every subsequent client-side navigation (per
+	// SvelteKit's own doc comment on it), which covers both the initial
+	// render and every org/new → /org/[slug] (or org-edit) redirect.
+	afterNavigate(() => {
+		organizations.get().refetch();
+		activeOrganization.get().refetch();
+	});
 
 	let signingOut = $state(false);
 

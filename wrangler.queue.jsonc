@@ -32,7 +32,7 @@
 	// One-time setup required before a real (non-local) deploy:
 	//   wrangler queues create hello
 	//   wrangler queues create hello-dlq
-	"name": "sveltekit-fullstack-template-queue-worker",
+	"name": "sveltekit-fullstack-template-worker",
 	"main": "src/worker/index.ts",
 	// Matches wrangler.jsonc's compatibility_date at the repo root — see that
 	// file's own comment and CLAUDE.md's "Deployment" gotcha: if a locally

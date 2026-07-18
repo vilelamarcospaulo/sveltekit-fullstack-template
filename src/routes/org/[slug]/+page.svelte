@@ -10,6 +10,30 @@
 	let email = $state('');
 	let role = $state<'admin' | 'member'>('member');
 	let pending = $state(false);
+
+	// One-time capture into editable local state (same pattern, and same
+	// reason, as src/routes/profile/+page.svelte's form fields) — these
+	// bind:value to inputs the user types into, so they must be assignable,
+	// not a read-only $derived. The $effect below keeps them in sync on
+	// later navigations; svelte-ignore only silences the warning about this
+	// initial capture.
+	// svelte-ignore state_referenced_locally
+	let editName = $state(data.organization.name);
+	// svelte-ignore state_referenced_locally
+	let editSlug = $state(data.organization.slug);
+	let editPending = $state(false);
+
+	// This route component can be reused across navigations that only change
+	// the `slug` param (e.g. this very form's own success redirect to the new
+	// slug) — SvelteKit doesn't remount the component just because a route
+	// param changed, so the `$state(...)` initializers above only run once.
+	// Re-sync the edit form's fields whenever `data.organization` itself
+	// changes (a fresh `load`), so a successful rename doesn't leave the
+	// inputs showing the pre-edit values.
+	$effect(() => {
+		editName = data.organization.name;
+		editSlug = data.organization.slug;
+	});
 </script>
 
 <svelte:head>
@@ -23,6 +47,70 @@
 			{data.organization.slug} · your role: {data.viewerRole}
 		</p>
 	</div>
+
+	{#if canManage}
+		<div class="flex flex-col gap-3 border-t pt-6">
+			<h2 class="text-lg font-medium">Organization settings</h2>
+			<form
+				method="POST"
+				action="?/updateOrganization"
+				class="flex flex-col gap-4"
+				use:enhance={() => {
+					editPending = true;
+					return async ({ update }) => {
+						await update();
+						editPending = false;
+					};
+				}}
+			>
+				<input type="hidden" name="organizationId" value={data.organization.id} />
+
+				<div class="flex flex-col gap-1.5">
+					<label for="edit-org-name" class="text-sm font-medium">Name</label>
+					<input
+						id="edit-org-name"
+						name="name"
+						bind:value={editName}
+						class="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+						aria-invalid={!!form?.updateErrors?.name}
+						aria-describedby={form?.updateErrors?.name ? 'edit-org-name-error' : undefined}
+					/>
+					{#if form?.updateErrors?.name}
+						<p id="edit-org-name-error" role="alert" class="text-sm text-destructive">
+							{form.updateErrors.name}
+						</p>
+					{/if}
+				</div>
+
+				<div class="flex flex-col gap-1.5">
+					<label for="edit-org-slug" class="text-sm font-medium">Slug</label>
+					<input
+						id="edit-org-slug"
+						name="slug"
+						bind:value={editSlug}
+						class="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+						aria-invalid={!!form?.updateErrors?.slug}
+						aria-describedby={form?.updateErrors?.slug ? 'edit-org-slug-error' : undefined}
+					/>
+					{#if form?.updateErrors?.slug}
+						<p id="edit-org-slug-error" role="alert" class="text-sm text-destructive">
+							{form.updateErrors.slug}
+						</p>
+					{/if}
+				</div>
+
+				{#if form?.updateErrors?.form}
+					<p role="alert" class="text-sm text-destructive">{form.updateErrors.form}</p>
+				{/if}
+
+				<div>
+					<Button type="submit" size="sm" disabled={editPending}>
+						{editPending ? 'Saving…' : 'Save changes'}
+					</Button>
+				</div>
+			</form>
+		</div>
+	{/if}
 
 	<div class="flex flex-col gap-3">
 		<h2 class="text-lg font-medium">Members</h2>

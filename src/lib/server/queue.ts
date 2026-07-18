@@ -32,14 +32,17 @@ import { env } from '$env/dynamic/private';
 import type { JobEnvelope } from '../internal/domain/jobs.ts';
 import Cloudflare from 'cloudflare';
 
-// Local-dev escape hatch: when set (e.g. in .env, pointed at `wrangler
-// dev`'s default http://localhost:8787), sendJob POSTs here with a plain
-// `fetch` instead of using the Cloudflare API below. This exists because
-// `vite dev` and the consumer Worker's `wrangler dev` (see
-// queue-worker:dev in package.json) run as two separate processes with no
-// shared queue state — there's no way for this file, running inside `vite
-// dev`, to deliver a message to the consumer running in a different
-// process, and there's no Cloudflare account needed for local dev either.
+// Local-dev escape hatch: when set (e.g. in .env, pointed at
+// http://localhost:8797 — this project's worker:dev script pins `wrangler
+// dev` to that port rather than its shifting default of 8787, which is
+// contested with the sibling Next.js template's equivalent local worker
+// setup), sendJob POSTs here with a plain `fetch` instead of using the
+// Cloudflare API below. This exists because `vite dev` and the consumer
+// Worker's `wrangler dev` (see worker:dev in package.json) run as two
+// separate processes with no shared queue state — there's no way for this
+// file, running inside `vite dev`, to deliver a message to the consumer
+// running in a different process, and there's no Cloudflare account needed
+// for local dev either.
 // Routing through this HTTP bridge instead lets the whole producer/consumer
 // loop run offline. The receiving end is src/worker/index.ts's fetch()
 // handler, which mirrors the real push API's request/response shape
@@ -114,7 +117,7 @@ export async function sendJob<T extends object>(
 	if (!accountId || !apiToken || !queueId) {
 		throw new Error(
 			'No queue transport configured. Set QUEUE_LOCAL_PUSH_URL for local dev ' +
-				'(see .env.example, paired with `pnpm run queue-worker:dev`), or set ' +
+				'(see .env.example, paired with `pnpm run worker:dev`), or set ' +
 				'CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_API_TOKEN/CLOUDFLARE_HELLO_QUEUE_ID ' +
 				'for a real deploy.'
 		);
