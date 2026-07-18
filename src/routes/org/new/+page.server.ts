@@ -4,13 +4,10 @@ import { getAuth } from '$lib/server/auth';
 import { inputToOrganization, type Field } from '$lib/internal/domain/organization';
 import type { Actions, PageServerLoad } from './$types';
 
-// Explicit shared shape for every fail() call below — without this, each
-// call site's inline object literal gets unioned separately, and svelte-check
-// can't see that `errors.name`/`errors.slug` are valid on every branch.
+// Shared shape for every fail() call — inline literals would union
+// separately, hiding valid fields from svelte-check.
 type FieldErrors = Partial<Record<Field, string>>;
 
-// Guard: only signed-in users can create an organization. Matches this app's
-// existing "redirect on guard failure" convention (see CLAUDE.md).
 export const load: PageServerLoad = ({ locals }) => {
 	if (!locals.user) {
 		redirect(302, '/');
@@ -35,10 +32,8 @@ export const actions: Actions = {
 		const { name, slug } = validation.value;
 
 		try {
-			// Unlike the databaseHooks.user.create.after signup-time call in
-			// $lib/server/auth.ts, this call DOES pass `headers` — there IS a
-			// session here (this route is guarded above), so better-auth's normal
-			// session-based authorization path applies.
+			// Passes `headers` (unlike auth.ts's signup-time call) — a real
+			// session exists here, so normal session-based auth applies.
 			await getAuth(event.platform).api.createOrganization({
 				body: { name, slug, userId: event.locals.user.id },
 				headers: event.request.headers

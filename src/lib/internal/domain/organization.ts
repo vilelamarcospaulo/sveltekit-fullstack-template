@@ -1,11 +1,7 @@
-// Organization domain: the type and pure logic functions that operate on it.
-// No framework or infrastructure imports — safe to use from a form action or
-// a `.svelte` component (shared single source of truth). Ported from the
-// Next.js sibling template's src/internal/domain/organization.ts.
+// No framework imports — usable from a form action or a .svelte component.
 //
-// Uniqueness (slug collisions) is NOT checked here — that's a DB-backed
-// concern better-auth's organization plugin already enforces (it throws
-// ORGANIZATION_ALREADY_EXISTS), surfaced as a form error at the boundary.
+// Slug uniqueness isn't checked here — better-auth's org plugin enforces it
+// (throws ORGANIZATION_ALREADY_EXISTS), surfaced as a form error at the boundary.
 import { str } from '$lib/utils/str';
 
 export type Field = 'name' | 'slug';
@@ -48,10 +44,8 @@ function validateSlug(rawSlug: unknown): { slug: string; error?: string } {
 	return { slug };
 }
 
-// Validate raw input (from a form) into a clean Organization (name + slug),
-// or a map of per-field errors. Used for both the "create organization" flow
-// and the "edit organization" flow (/org/[slug]'s updateOrganization action)
-// — the slug is editable in both, not just at creation time.
+// Used by both create and edit flows — the slug is editable in both, not
+// just at creation.
 export function inputToOrganization(input: Record<string, unknown>): ValidationResult {
 	const errors: Partial<Record<Field, string>> = {};
 
@@ -67,11 +61,8 @@ export function inputToOrganization(input: Record<string, unknown>): ValidationR
 	return { ok: true, value: { name, slug } };
 }
 
-// Derive a URL-safe slug suggestion from a display name (e.g. to prefill the
-// slug field as the user types an org name). Pure and lossy — the caller
-// still runs the result through validateSlug/inputToOrganization since a
-// derived slug can still collide with an existing one or end up empty (e.g.
-// a name with no ASCII alphanumerics).
+// Derives a slug suggestion from a name — pure and lossy; callers still run
+// it through validateSlug since it can still collide or end up empty.
 export function slugify(name: string): string {
 	return str(name)
 		.toLowerCase()

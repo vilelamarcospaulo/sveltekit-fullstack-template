@@ -11,25 +11,18 @@
 	let role = $state<'admin' | 'member'>('member');
 	let pending = $state(false);
 
-	// One-time capture into editable local state (same pattern, and same
-	// reason, as src/routes/profile/+page.svelte's form fields) — these
-	// bind:value to inputs the user types into, so they must be assignable,
-	// not a read-only $derived. The $effect below keeps them in sync on
-	// later navigations; svelte-ignore only silences the warning about this
-	// initial capture.
+	// One-time capture into local state — bind:value needs an assignable
+	// $state, not $derived. The $effect below re-syncs on later navigations.
 	// svelte-ignore state_referenced_locally
 	let editName = $state(data.organization.name);
 	// svelte-ignore state_referenced_locally
 	let editSlug = $state(data.organization.slug);
 	let editPending = $state(false);
 
-	// This route component can be reused across navigations that only change
-	// the `slug` param (e.g. this very form's own success redirect to the new
-	// slug) — SvelteKit doesn't remount the component just because a route
-	// param changed, so the `$state(...)` initializers above only run once.
-	// Re-sync the edit form's fields whenever `data.organization` itself
-	// changes (a fresh `load`), so a successful rename doesn't leave the
-	// inputs showing the pre-edit values.
+	// SvelteKit doesn't remount on a slug-only param change (e.g. this form's
+	// own rename redirect), so the $state initializers above only run once.
+	// Re-sync when `data.organization` changes so a rename doesn't leave
+	// stale values.
 	$effect(() => {
 		editName = data.organization.name;
 		editSlug = data.organization.slug;

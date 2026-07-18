@@ -6,11 +6,9 @@
 
 	let { data, form }: PageProps = $props();
 
-	// Prefill from the form action's echoed-back values on a failed submit
-	// (form.values), falling back to the server-loaded profile otherwise.
-	// Deliberately a one-time capture into local editable $state (not
-	// $derived) — these bind:value to inputs the user types into, so they
-	// must be assignable, not a read-only computation.
+	// Prefills from form.values on a failed submit, else the loaded profile.
+	// One-time capture into $state, not $derived — bind:value needs an
+	// assignable value.
 	// svelte-ignore state_referenced_locally
 	let name = $state(form?.values?.name ?? data.profile.name);
 	// svelte-ignore state_referenced_locally

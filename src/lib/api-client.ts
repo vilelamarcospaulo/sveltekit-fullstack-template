@@ -1,28 +1,12 @@
-// Typed fetch helper for client (browser-side) code calling this app's
-// src/routes/api/**/+server.ts routes — the SvelteKit counterpart to the
-// Next.js sibling template's src/lib/api-client.ts. Framework-independent
-// logic (parses the ApiErrorBody envelope into typed exceptions); the only
-// SvelteKit-specific thing about it is that it's meant to be called from
-// ".svelte" components, not from `load`/actions (those call the internal
-// use_case layer directly instead of round-tripping through their own app's
-// HTTP API — see src/routes/profile/+page.server.ts).
-//
-// Usage:
-//   const data = await apiFetch<ProfileView>("/api/profile");
-//
-// On success (2xx) the parsed body is returned as T.
-// On failure the function throws an ApiError with the structured errors map,
-// or an AuthError (a subclass) when the server returns 401.
-// Network-level rejections propagate as-is so callers can catch them separately.
+// Called from ".svelte" components only — `load`/actions call the use_case
+// layer directly instead of round-tripping through this app's own API.
 import type { ApiErrorBody } from '$lib/types/api';
 
-// Thrown for any non-ok response that carries an { errors } envelope.
 export class ApiError extends Error {
 	readonly status: number;
 	readonly errors: Record<string, string>;
 
 	constructor(status: number, errors: Record<string, string>) {
-		// Build a compact message from the first error value for convenience.
 		const first = Object.values(errors)[0] ?? 'Request failed.';
 		super(first);
 		this.name = 'ApiError';
@@ -31,8 +15,7 @@ export class ApiError extends Error {
 	}
 }
 
-// Subclass so callers can distinguish 401 with a simple instanceof check
-// without inspecting the status manually.
+// Subclass so callers can distinguish 401 via instanceof, not status checks.
 export class AuthError extends ApiError {
 	constructor(errors: Record<string, string>) {
 		super(401, errors);
@@ -40,10 +23,6 @@ export class AuthError extends ApiError {
 	}
 }
 
-// Core helper. Mirrors the native fetch signature: same `input` + `init`, but
-// parses JSON automatically and unwraps error envelopes into typed exceptions.
-//
-//   T — the expected shape of a successful (2xx) response body.
 export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
 	// Let network rejections (TypeError: Failed to fetch, etc.) propagate raw;
 	// callers handle them in their own catch branch.
@@ -55,7 +34,6 @@ export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit):
 	try {
 		json = await res.json();
 	} catch {
-		// Body wasn't parseable JSON — surface a generic error.
 		const fallback: Record<string, string> = {
 			_body: `Server returned ${res.status} with non-JSON body.`
 		};
@@ -64,7 +42,6 @@ export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit):
 	}
 
 	if (!res.ok) {
-		// Try to pull the errors map out of the standard envelope.
 		const envelope = json as Partial<ApiErrorBody>;
 		const errors: Record<string, string> =
 			envelope?.errors && typeof envelope.errors === 'object'

@@ -7,22 +7,16 @@ import { user } from '$lib/server/db/schema';
 import { inputToOrganization, type Field } from '$lib/internal/domain/organization';
 import type { Actions, PageServerLoad } from './$types';
 
-// Explicit shared shape for every addMember fail() call below — without
-// this, each call site's inline object literal gets unioned separately, and
-// svelte-check can't see that `addErrors.email`/`.role`/`.form` are valid on
-// every branch.
+// Shared shape for every addMember fail() call — inline literals would union
+// separately, and svelte-check couldn't see all fields as valid on every branch.
 type AddMemberErrors = Partial<Record<'form' | 'email' | 'role', string>>;
 
-// Same reasoning, for updateOrganization below — name/slug come from the
-// shared domain validator (Field = 'name' | 'slug'), plus a catch-all
-// `form` key for auth/permission failures that aren't tied to one field.
+// Same reasoning, for updateOrganization — plus a catch-all `form` key for
+// failures not tied to one field.
 type UpdateOrganizationErrors = Partial<Record<Field | 'form', string>>;
 
-// load: resolves the org by slug server-side via better-auth's own
-// get-full-organization endpoint (which already enforces "org must exist"),
-// then checks the viewer is a member itself (that endpoint doesn't reject
-// non-members on its own). Guard failures all redirect home, matching this
-// app's "redirect on guard failure" convention (see CLAUDE.md).
+// getFullOrganization enforces "org exists" but not membership, so we check
+// the viewer is a member ourselves. Guard failures redirect home.
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
 		redirect(302, '/');
@@ -61,12 +55,9 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions: Actions = {
-	// Deliberately self-contained inline validation (not routed through
-	// $lib/internal/domain/organization.ts, which only covers name/slug — a
-	// different concern), same choice the Next.js sibling template makes in
-	// its org/actions.ts.
+	// Self-contained inline validation — domain/organization.ts only covers
+	// name/slug, a different concern.
 	addMember: async (event) => {
-		// ── 1. Auth check ────────────────────────────────────────────────────
 		if (!event.locals.user) {
 			const addErrors: AddMemberErrors = { form: 'Your session expired. Please sign in again.' };
 			return fail(401, { addErrors });
@@ -77,7 +68,6 @@ export const actions: Actions = {
 		const email = String(formData.get('email') ?? '').trim();
 		const role = String(formData.get('role') ?? '');
 
-		// ── 2. Input validation ─────────────────────────────────────────────
 		if (!organizationId) {
 			const addErrors: AddMemberErrors = { form: 'Missing organization.' };
 			return fail(400, { addErrors });
@@ -93,26 +83,13 @@ export const actions: Actions = {
 
 		const auth = getAuth(event.platform);
 
-		// ── 3. Permission check ─────────────────────────────────────────────
-		// getAuth().api.addMember (below) is server-only and enforces NO
-		// permission check of its own — it trusts the caller completely, so
-		// this action must gate it itself. hasPermission resolves
-		// `{ success: boolean, error: string | null }`, NOT a plain boolean
-		// promise (verified in
-		// node_modules/better-auth/dist/plugins/organization/organization.mjs,
-		// the `/organization/has-permission` endpoint's
-		// `ctx.json({ error: null, success: result })`).
+		// addMember enforces no permission check itself, so this action gates
+		// it via hasPermission (resolves `{ success, error }`, not a boolean).
 		//
-		// `permission: undefined` must be passed explicitly (not just omitted)
-		// — the endpoint's body schema is a union keyed on `permission` vs
-		// `permissions`, and the installed zod version (4.4.3) rejects the
-		// `permissions`-only branch when the `permission` key is absent
-		// entirely rather than present-but-undefined (verified directly
-		// against the installed zod package: `z.object({ permission:
-		// z.undefined(), permissions: z.record(...) }).safeParse({ permissions:
-		// {...} })` fails, but `.safeParse({ permission: undefined, permissions:
-		// {...} })` succeeds). Without this, every hasPermission call in this
-		// file 500s with "APIError: [body] Invalid input".
+		// `permission: undefined` must be passed explicitly — the endpoint's
+		// zod schema rejects the `permissions`-only union branch when
+		// `permission` is absent rather than present-but-undefined. Omitting it
+		// 500s with "APIError: [body] Invalid input".
 		const permissionCheck = await auth.api.hasPermission({
 			headers: event.request.headers,
 			body: { organizationId, permission: undefined, permissions: { member: ['create'] } }
@@ -122,7 +99,6 @@ export const actions: Actions = {
 			return fail(403, { addErrors });
 		}
 
-		// ── 4. Business logic ───────────────────────────────────────────────
 		const [targetUser] = await getDb(event.platform)
 			.select({ id: user.id })
 			.from(user)
@@ -155,14 +131,9 @@ export const actions: Actions = {
 		return { addSuccess: true };
 	},
 
-	// Rename an organization and/or change its slug. Follows the exact same
-	// four-step defensive shape as addMember above (session check → input
-	// validation → explicit permission check → mutation), and — since the
-	// slug this page's own URL is keyed on can change — redirects to the
-	// new slug on success rather than returning form data in place, so the
-	// URL never goes stale relative to the org's actual slug.
+	// Same four-step shape as addMember. Redirects to the new slug on success
+	// (rather than returning form data in place) so the URL never goes stale.
 	updateOrganization: async (event) => {
-		// ── 1. Auth check ────────────────────────────────────────────────────
 		if (!event.locals.user) {
 			const updateErrors: UpdateOrganizationErrors = {
 				form: 'Your session expired. Please sign in again.'
@@ -177,10 +148,6 @@ export const actions: Actions = {
 			return fail(400, { updateErrors });
 		}
 
-		// ── 2. Input validation ─────────────────────────────────────────────
-		// Full inputToOrganization (name + slug), not the name-only validator —
-		// this app lets both be edited after creation, unlike the assumption
-		// baked into an earlier, now-removed helper.
 		const validation = inputToOrganization({
 			name: formData.get('name'),
 			slug: formData.get('slug')
@@ -193,15 +160,9 @@ export const actions: Actions = {
 
 		const auth = getAuth(event.platform);
 
-		// ── 3. Permission check ─────────────────────────────────────────────
-		// Mirrors addMember's own defense-in-depth check above (including the
-		// explicit `permission: undefined` — see its comment for why) — the
-		// /organization/update endpoint enforces `organization: ['update']`
-		// itself too (see
-		// node_modules/better-auth/dist/plugins/organization/routes/crud-org.mjs's
-		// updateOrganization handler), but this action gates it explicitly up
-		// front so a non-owner/admin gets a clean field error instead of
-		// relying solely on the endpoint's own FORBIDDEN throw.
+		// Mirrors addMember's permission check (including `permission:
+		// undefined` — see above) so a non-owner/admin gets a clean field
+		// error instead of the endpoint's bare FORBIDDEN throw.
 		const permissionCheck = await auth.api.hasPermission({
 			headers: event.request.headers,
 			body: { organizationId, permission: undefined, permissions: { organization: ['update'] } }
@@ -213,9 +174,7 @@ export const actions: Actions = {
 			return fail(403, { updateErrors });
 		}
 
-		// ── 4. Business logic ───────────────────────────────────────────────
 		try {
-			// Verified shape against crud-org.mjs's updateOrganization endpoint:
 			// POST /organization/update, body `{ organizationId, data: {...} }`,
 			// requireHeaders: true.
 			await auth.api.updateOrganization({
@@ -223,11 +182,9 @@ export const actions: Actions = {
 				headers: event.request.headers
 			});
 		} catch (error) {
-			// better-auth derives APIError.body.code from the thrown message via
-			// `message.toUpperCase().replace(/ /g, '_').replace(/[^A-Z0-9_]/g, '')`
-			// (node_modules/better-call/dist/error.mjs) — for
-			// ORGANIZATION_ERROR_CODES.ORGANIZATION_SLUG_ALREADY_TAKEN ("Organization
-			// slug already taken") that resolves to this exact code.
+			// better-auth derives APIError.body.code from the message via
+			// `.toUpperCase().replace(/ /g,'_').replace(/[^A-Z0-9_]/g,'')` — hence
+			// this exact code string.
 			if (error instanceof APIError && error.body?.code === 'ORGANIZATION_SLUG_ALREADY_TAKEN') {
 				const updateErrors: UpdateOrganizationErrors = { slug: 'That slug is already taken.' };
 				return fail(400, { updateErrors });

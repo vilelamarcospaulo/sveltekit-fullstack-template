@@ -1,29 +1,14 @@
-// Cloudflare Worker that consumes the "hello" and "hello-dlq" queues — an
-// independently deployed second Worker, entirely separate from the
-// SvelteKit app's own Worker (wrangler.jsonc). Wired up via the
-// [[queues.consumers]] entries in wrangler.queue.jsonc at the repo root.
+// Consumes "hello"/"hello-dlq" — a second Worker, independent from the app's
+// own (wrangler.jsonc), wired via wrangler.queue.jsonc's [[queues.consumers]].
 //
-// Ack/retry semantics are per-message, not per-batch: each message is
-// ack()'d on success or retry()'d on failure individually, and a failure is
-// caught and logged rather than rethrown across the whole batch — so one bad
-// message doesn't block or force a retry of its batch-mates.
+// Per-message ack/retry: a failure is caught and logged, not rethrown, so
+// one bad message doesn't block its batch-mates.
 //
-// OpenTelemetry / distributed tracing is out of scope here: doing it
-// properly would need a third-party Workers OTel shim, which isn't a current
-// dependency. `traceId` still flows through the envelope and every log line
-// below, though, so grep-based correlation across the SvelteKit app and this
-// Worker keeps working — just without span-level tracing.
-//
-// Imports stay relative with explicit ".ts" extensions: wrangler's esbuild
-// bundling of this Worker doesn't resolve the "$lib/*" path alias (that's a
-// Vite/SvelteKit-only mechanism), and — more strictly than that — must never
-// transitively reach a SvelteKit-only virtual module like
-// "$env/dynamic/private" (used by src/lib/server/queue.ts and
-// src/lib/server/logger.ts), since plain esbuild can't resolve those at all
-// and the build would hard-fail regardless of tree-shaking. See
-// src/lib/internal/use_case/jobs.ts's module-level comment for the full
-// explanation of why enqueueHelloJob takes its producer by injection instead
-// of this Worker's entry point ever importing src/lib/server/queue.ts.
+// Relative imports with explicit ".ts": wrangler's esbuild bundling doesn't
+// resolve "$lib/*", and can't resolve SvelteKit virtual modules like
+// "$env/dynamic/private" at all (build hard-fails regardless of
+// tree-shaking) — see jobs.ts for why sendJob is injected rather than
+// imported here.
 import type { ExecutionContext, MessageBatch, Queue } from '@cloudflare/workers-types';
 import {
 	HELLO_DLQ,
@@ -35,30 +20,19 @@ import { processHelloJob } from '../lib/internal/use_case/jobs.ts';
 import { createJobLogger } from './logger.ts';
 
 type Env = {
-	// Producer binding onto the same "hello" queue this Worker also consumes
-	// (see [[queues.producers]] in wrangler.queue.jsonc). In production this
-	// binding is never actually exercised — src/lib/server/queue.ts pushes via
-	// Cloudflare's real HTTP API instead, bypassing this Worker entirely. It
-	// exists so fetch() below can simulate that HTTP push locally through
-	// Miniflare.
+	// Producer binding for the same queue this Worker consumes — unused in
+	// production (queue.ts pushes via the HTTP API instead); exists so fetch()
+	// below can simulate that push locally.
 	HELLO_QUEUE: Queue<JobEnvelope<HelloJobPayload>>;
-	// Only ever set locally via the gitignored .dev.vars (see
-	// .dev.vars.example) — `wrangler deploy` doesn't read .dev.vars, so this
-	// is always undefined in a real deployment, keeping fetch() a 404 there.
+	// Only set locally via gitignored .dev.vars — `wrangler deploy` doesn't
+	// read it, so this stays undefined (and fetch() a 404) in production.
 	LOCAL_DEV_PUSH_ENABLED?: string;
 };
 
 const worker = {
-	// Local-dev-only stand-in for Cloudflare's real "push message" HTTP API
-	// (POST /accounts/{id}/queues/{id}/messages), so src/lib/server/queue.ts
-	// can be pointed at this Worker instead of the real Cloudflare API when
-	// QUEUE_LOCAL_PUSH_URL is set — letting the whole producer/consumer loop
-	// run offline under `wrangler dev` with no Cloudflare account. Mirrors the
-	// real API's request/response shape (`{ body: <envelope> }` in, `{success:
-	// true}` out) so src/lib/server/queue.ts doesn't need separate parsing
-	// logic per target. Gated behind LOCAL_DEV_PUSH_ENABLED (see the Env type
-	// above) — without it, this always 404s, including in any real
-	// deployment.
+	// Local-dev stand-in for Cloudflare's push API — queue.ts points here via
+	// QUEUE_LOCAL_PUSH_URL, running the whole loop offline. Mirrors the real
+	// API's request/response shape so queue.ts needs no separate parsing.
 	async fetch(request: Request, env: Env): Promise<Response> {
 		if (env.LOCAL_DEV_PUSH_ENABLED !== 'true') {
 			return new Response('Not Found', { status: 404 });
@@ -82,10 +56,8 @@ const worker = {
 		env: Env,
 		ctx: ExecutionContext
 	): Promise<void> {
-		// Neither binding is used today — no producer binding (see above) and no
-		// waitUntil()-scheduled work in this handler — but both stay in the
-		// signature so it keeps matching Cloudflare's queue() handler shape
-		// rather than relying on TS's fewer-params structural typing.
+		// Unused, but kept in the signature to match Cloudflare's queue()
+		// handler shape.
 		void env;
 		void ctx;
 
@@ -112,9 +84,7 @@ const worker = {
 		}
 
 		if (batch.queue === HELLO_DLQ) {
-			// Pure visibility into terminally-failed jobs — no re-processing /
-			// re-drive logic here. Re-driving dead-lettered jobs is an
-			// intentional scope boundary for this scaffold.
+			// Visibility only — no re-drive logic; out of scope for this scaffold.
 			for (const message of batch.messages) {
 				const { payload, traceId } = message.body;
 				const log = createJobLogger({

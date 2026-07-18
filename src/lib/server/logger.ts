@@ -1,24 +1,10 @@
-// Canonical application logger.
+// No pino — its Node build doesn't run under `workerd`. Plain JSON lines via
+// console.log/warn/error instead, scraped by Cloudflare Workers Logs.
 //
-// pino is NOT used here: its Node build doesn't run under Cloudflare's
-// `workerd` runtime (no Node stream internals, no worker-thread-based
-// transports). This is the same tiny, dependency-free pattern the Next.js
-// sibling template uses: one JSON line per call via
-// console.log/console.warn/console.error, captured by Cloudflare Workers Logs
-// (and `wrangler tail`) the same way stdout would be scraped elsewhere.
-//
-// Reads LOG_LEVEL via $env/dynamic/private (not process.env) — under
-// adapter-cloudflare, Worker vars/bindings live on `platform.env` /
-// $env/dynamic/private, not process.env (unlike OpenNext's Next.js runtime,
-// which explicitly copies vars into process.env). Safe to cache at module
-// scope despite the general "don't cache request-scoped things" rule
-// elsewhere in this codebase (db.ts, auth.ts): env vars are static for the
-// lifetime of a deployed Worker, not per-request — LOG_LEVEL never changes
-// mid-flight the way a pg connection's validity does.
-//
-// Usage:
-//   import { logger } from "$lib/server/logger";
-//   logger.info({ userId }, "profile_updated");
+// Reads LOG_LEVEL via $env/dynamic/private, not process.env (unavailable
+// under adapter-cloudflare). Safe to cache at module scope, unlike db.ts/
+// auth.ts's request-scoped clients — env vars are static per Worker
+// lifetime, not per-request.
 import { env } from '$env/dynamic/private';
 
 const LEVELS = ['debug', 'info', 'warn', 'error'] as const;

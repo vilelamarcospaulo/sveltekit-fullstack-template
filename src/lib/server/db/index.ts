@@ -1,23 +1,14 @@
-// Hyperdrive-first, DATABASE_URL-fallback: a deployed Worker gets its
-// connection string from the "HYPERDRIVE" binding (wrangler.jsonc);
-// everything else (`vite dev` without a resolved binding, Vitest,
-// drizzle-kit) falls back to a direct DATABASE_URL read.
+// Hyperdrive-first, DATABASE_URL-fallback: a deployed Worker reads the
+// "HYPERDRIVE" binding; everything else falls back to DATABASE_URL directly.
 //
-// Builds a fresh client on every call — deliberately not cached at module
-// scope or on globalThis. A Workers TCP socket (which the "postgres" driver
-// holds open) is only valid for the request that opened it; caching a client
-// across requests in the same isolate risks later, unrelated requests
-// reusing a torn-down socket. Hyperdrive already keeps the expensive
-// database-side connections warm, so paying for a new local client per call
-// is cheap — same reasoning as the Next.js sibling template's src/lib/db.ts,
-// just threading the Cloudflare bindings through SvelteKit's `platform`
-// parameter instead of a global-context helper (SvelteKit has no
-// request-context-free equivalent to Next's getCloudflareContext(); bindings
-// only exist on the request `event`).
+// Builds a fresh client per call, never cached — a Workers TCP socket (held
+// open by the "postgres" driver) is only valid for the request that opened
+// it; caching risks reusing a torn-down socket across requests in the same
+// isolate. Hyperdrive keeps the expensive DB-side connections warm, so a new
+// local client per call is cheap.
 //
-// Request-scoped accessor — call from within a `load` function, form action,
-// `+server.ts` handler, or hooks.server.ts; never store its result at module
-// top level.
+// Request-scoped — call from `load`/actions/`+server.ts`/hooks.server.ts;
+// never store the result at module scope.
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';

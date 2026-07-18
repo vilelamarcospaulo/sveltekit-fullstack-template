@@ -1,8 +1,4 @@
 <script lang="ts">
-	// SvelteKit counterpart to the Next.js sibling template's
-	// src/app/api-hello-demo.tsx — calls this app's own /api/hello route
-	// (src/routes/api/hello/+server.ts) from the client and shows the raw
-	// JSON response. No auth involved, unlike profile-api-demo.svelte.
 	import { apiFetch } from '$lib/api-client';
 	import { Button } from '$lib/components/ui/button';
 
@@ -14,9 +10,8 @@
 		pending = true;
 		error = null;
 		try {
-			// apiFetch throws on both network rejection and non-ok responses; this
-			// demo collapses both to the same "failed to reach" message, matching
-			// the Next.js template's api-hello-demo.tsx.
+			// apiFetch throws on both network rejection and non-ok responses, so
+			// this catch collapses both into the same "failed to reach" message.
 			const data = await apiFetch<unknown>('/api/hello');
 			result = JSON.stringify(data, null, 2);
 		} catch {

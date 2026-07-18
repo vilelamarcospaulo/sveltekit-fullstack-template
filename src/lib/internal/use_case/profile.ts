@@ -1,20 +1,10 @@
-// Profile use cases: orchestration between the route boundary (src/routes/)
-// and the data store (Drizzle). No SvelteKit imports — the boundary resolves
-// `db` (via $lib/server/db's getDb(event.platform)) and the session's userId,
-// and passes both in; these functions never touch `event`, headers, or
-// Response.
+// No SvelteKit imports — the route boundary resolves `db` (getDb(event.platform))
+// and userId, passing both in; these functions never touch `event` or Response.
 //
-// Deviation from the Next.js sibling template's use_case/profile.ts: there,
-// getDb() is context-free (Next's getCloudflareContext() works anywhere) so
-// the use case calls it internally. Here, getDb(platform?: App.Platform)
-// needs SvelteKit's request-scoped `event.platform`, which only exists in
-// route code — resolving it here would require threading a SvelteKit/
-// Cloudflare-specific type (App.Platform) into this framework-free internal
-// layer. So every function below takes an already-resolved `db: DrizzleDb`
-// as its first parameter instead, and the caller (a `load` function or form
-// action) does `const db = getDb(event.platform)` and passes it in. Future
-// features (org, queues) should follow the same `db`-not-`platform`
-// convention for their use_case layers.
+// Takes `db: DrizzleDb`, not `platform`: getDb() needs SvelteKit's
+// request-scoped `event.platform`, which only exists in route code — resolving
+// it here would leak a SvelteKit-specific type into this framework-free layer.
+// Future use_case layers should follow the same convention.
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import type { DrizzleDb } from '$lib/server/db';
@@ -22,9 +12,7 @@ import { user, profile } from '$lib/server/db/schema';
 import { inputToProfile, type Field } from '$lib/internal/domain/profile';
 import { dateToStr } from '$lib/utils/date';
 
-// The serialised shape returned to the boundary: a user's display fields
-// merged with their optional 1-1 profile. birthdate is a YYYY-MM-DD string
-// (or null).
+// birthdate is serialised as a YYYY-MM-DD string (or null), not a Date.
 export type ProfileView = {
 	name: string;
 	email: string;
@@ -37,9 +25,8 @@ export type ProfileView = {
 export type UpdateProfileResult =
 	{ ok: true; value: ProfileView } | { ok: false; errors: Partial<Record<Field, string>> };
 
-// Flatten a user (+ optional profile) into the serialised view. birthdate is
-// stored as a Date but emitted as YYYY-MM-DD (a presentation concern, hence
-// the dateToStr util and not the domain).
+// birthdate is stored as a Date but emitted as YYYY-MM-DD — a presentation
+// concern, hence the dateToStr util here and not the domain.
 function toView(user: {
 	name: string;
 	email: string;
@@ -60,7 +47,7 @@ function toView(user: {
 	};
 }
 
-// Read a user's own profile. Returns null when the user row is missing.
+// Returns null when the user row is missing.
 export async function getProfile(db: DrizzleDb, userId: string): Promise<ProfileView | null> {
 	const rows = await db
 		.select({
@@ -79,10 +66,8 @@ export async function getProfile(db: DrizzleDb, userId: string): Promise<Profile
 	const row = rows[0];
 	if (!row) return null;
 
-	// The leftJoin returns birthdate/bio/location as null when there's no
-	// profile row at all — indistinguishable here from a profile row whose
-	// fields happen to all be null, but toView() flattens both cases to the
-	// same ProfileView output via `?.`/`??`, so no branching is needed.
+	// leftJoin nulls (no profile row) are indistinguishable from an all-null
+	// profile row, but toView() flattens both via `?.`/`??` — no branching needed.
 	return toView({
 		name: row.name,
 		email: row.email,
@@ -91,8 +76,7 @@ export async function getProfile(db: DrizzleDb, userId: string): Promise<Profile
 	});
 }
 
-// Validate raw input (never trust the caller) and persist it. user.{name,image}
-// and the profile fields are written atomically in one transaction.
+// Written atomically in one transaction (user + profile fields).
 export async function updateProfile(
 	db: DrizzleDb,
 	userId: string,

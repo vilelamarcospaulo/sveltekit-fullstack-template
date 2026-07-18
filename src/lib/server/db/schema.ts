@@ -1,14 +1,9 @@
-// App-owned tables go here, alongside the re-exported better-auth-owned
-// tables below.
 import { pgTable, text, timestamp, date, uniqueIndex } from 'drizzle-orm/pg-core';
 import { user } from './auth.schema';
 
-// 1-1 extension of `user`: fields that aren't part of better-auth's own
-// generated schema. `id` is app-generated (cuid2, via createId() in
-// $lib/internal/use_case/profile.ts) rather than db-generated, matching the
-// Next.js sibling template's src/lib/schema.ts `profile` table. userId is
-// unique (not just indexed) to enforce the 1-1 relationship and to give
-// `updateProfile`'s `onConflictDoUpdate` a target for its upsert.
+// `id` is app-generated (cuid2), not db-generated. userId is unique (not
+// just indexed) to enforce the 1-1 relationship and give updateProfile's
+// onConflictDoUpdate a target.
 export const profile = pgTable(
 	'profile',
 	{

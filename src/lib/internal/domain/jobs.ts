@@ -1,9 +1,5 @@
-// Jobs domain: queue name constants, the payload schema, and pure
-// validation. No framework or infrastructure imports — safe to use from the
-// use_case orchestration layer AND the standalone consumer Worker (both of
-// which load this file via a relative import, hence no "$lib/*" alias here,
-// same reasoning as the Next.js sibling template's
-// src/internal/domain/jobs.ts).
+// No framework/infra imports — used by both the use_case layer and the
+// standalone consumer Worker (both import via relative path, no "$lib/*").
 import { z } from 'zod';
 
 // The demo "hello" queue proves the producer/consumer wiring end to end;
@@ -17,14 +13,10 @@ export const helloJobPayloadSchema = z.object({
 
 export type HelloJobPayload = z.infer<typeof helloJobPayloadSchema>;
 
-// Every job is sent/received wrapped in this envelope so a traceId travels
-// with it automatically — no job type has to remember to thread it through
-// its own payload schema. See src/lib/server/trace.ts for what traceId
-// means. Lives here (not in src/lib/server/queue.ts) so both the producer
-// (queue.ts, imported via the "$lib/*" alias from SvelteKit app code) and the
-// consumer (the Cloudflare Worker under src/worker/, imported via a relative
-// path) share one definition without the Worker needing to import anything
-// from queue.ts.
+// Wraps every job so traceId travels automatically, without each payload
+// schema threading it through itself. Lives here, not in queue.ts, so both
+// the producer ($lib/* import) and the consumer Worker (relative import)
+// share one definition without the Worker importing queue.ts.
 export type JobEnvelope<T> = {
 	payload: T;
 	traceId: string;
@@ -33,9 +25,6 @@ export type JobEnvelope<T> = {
 export type ParseHelloJobPayloadResult =
 	{ ok: true; value: HelloJobPayload } | { ok: false; errors: Partial<Record<'message', string>> };
 
-// Validate raw input (from a form action or the worker's fetched job data)
-// into a clean HelloJobPayload, or a map of per-field errors. Same
-// discriminated-result shape used elsewhere in this codebase's domain layer.
 export function parseHelloJobPayload(input: unknown): ParseHelloJobPayloadResult {
 	const result = helloJobPayloadSchema.safeParse(input);
 	if (result.success) {

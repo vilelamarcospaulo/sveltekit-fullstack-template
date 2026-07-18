@@ -1,15 +1,4 @@
 <script lang="ts">
-	// Self-contained "async job" demo card, the SvelteKit-idiomatic
-	// counterpart to the Next.js sibling template's src/app/job-demo.tsx: a
-	// real `<form>` posting to a named form action (src/routes/+page.server.ts's
-	// `actions.submitHelloJob`) via `use:enhance`, rather than a client-invoked
-	// async server-action function — SvelteKit's own recommended pattern for
-	// this, and progressively enhanced (still a plain HTML form post if JS is
-	// disabled).
-	//
-	// Not wired into src/routes/+page.svelte here — see this feature's report
-	// for the exact snippet to drop in there (left to the orchestrator since
-	// other features are also touching that file concurrently).
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { Button } from '$lib/components/ui/button';
@@ -50,8 +39,8 @@
 				return;
 			}
 
-			// "error" (an unhandled exception in the action) — no structured data
-			// to show, just the generic fallback.
+			// actionResult.type === 'error' (an unhandled exception in the action)
+			// carries no structured data, so fall back to the generic message.
 			result = { ok: false, error: 'Something went wrong. Please try again.' };
 		};
 	};
@@ -80,8 +69,6 @@
 			<pre
 				class="overflow-x-auto rounded-md bg-muted p-3 font-mono text-sm text-muted-foreground">Job enqueued — trace: {result.traceId}</pre>
 		{:else if result.error === 'unauthenticated'}
-			<!-- Friendly degraded state for logged-out visitors, matching the
-			     Next.js template's job-demo.tsx. -->
 			<p class="text-sm text-muted-foreground">Please sign in to try this feature.</p>
 		{:else}
 			<p class="text-sm text-destructive">{result.error}</p>

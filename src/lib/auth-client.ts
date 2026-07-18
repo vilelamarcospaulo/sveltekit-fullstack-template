@@ -1,9 +1,8 @@
 import { createAuthClient } from 'better-auth/svelte';
 import { organizationClient } from 'better-auth/client/plugins';
 
-// Browser-side client. baseURL is omitted — better-auth defaults to the
-// current origin, and the server mounts its API routes at /api/auth/* via
-// hooks.server.ts's svelteKitHandler.
+// baseURL omitted — better-auth defaults to the current origin, matching
+// where hooks.server.ts mounts /api/auth/*.
 export const authClient = createAuthClient({
 	plugins: [organizationClient()]
 });

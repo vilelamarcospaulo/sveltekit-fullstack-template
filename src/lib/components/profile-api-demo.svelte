@@ -1,9 +1,5 @@
 <script lang="ts">
-	// Live demo of calling this app's own JSON API (src/routes/api/profile/+server.ts)
-	// from the client. The main profile form on this page still saves via a
-	// SvelteKit form action — this is a separate, self-contained demonstration
-	// of the read-only HTTP-call path (the API route is GET-only; writes go
-	// through the form action, not a client-side PUT).
+	// GET-only route — writes go through the page's form action, not a PUT.
 	import { apiFetch, ApiError, AuthError } from '$lib/api-client';
 	import { Button } from '$lib/components/ui/button';
 	import type { ProfileView } from '$lib/types/api';

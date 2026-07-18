@@ -22,36 +22,19 @@
 
 	let { user }: { user: NavUser | null } = $props();
 
-	// authClient.useListOrganizations()/useActiveOrganization() return
-	// better-auth's nanostore atoms directly (see
-	// node_modules/better-auth/dist/client/svelte/index.mjs — each `use*`
-	// hook is just `() => value`, not a fresh call per render). Nanostores
-	// implement the same subscribe-contract Svelte stores expect, so `$`
-	// auto-subscription works directly on them without any adapter. Each
-	// atom's value is `{ data, error, isPending, isRefetching, refetch }` —
-	// verified against node_modules/better-auth/dist/client/query.d.mts's
-	// `AuthQueryAtom<T>`.
+	// useListOrganizations()/useActiveOrganization() return better-auth's
+	// nanostore atoms directly (not a fresh call per render) — nanostores
+	// satisfy Svelte's store contract, so `$` auto-subscription works with no
+	// adapter. Each atom's value is `{ data, error, isPending, isRefetching, refetch }`.
 	const organizations = authClient.useListOrganizations();
 	const activeOrganization = authClient.useActiveOrganization();
 
-	// Org membership/details can change via a purely SERVER-side mutation
-	// (e.g. the /org/new and /org/[slug] form actions, which call
-	// getAuth(...).api.createOrganization/updateOrganization directly —
-	// never through this browser-side authClient SDK). These nanostore
-	// atoms keep their own client-side cache entirely separate from
-	// SvelteKit's load/invalidate mechanism (unlike handleSwitchOrganization
-	// below, which mutates via the client SDK itself and so updates the
-	// atoms' cache as a side effect of the call). Nothing else tells them to
-	// refetch after such a server-side mutation, even though the redirect
-	// that follows one does rerun SvelteKit's own `load` functions. Calling
-	// `.get()` (plain nanostores API, not the `$`-prefixed auto-subscription
-	// used for rendering below) reads the atom's current value without
-	// creating a new subscription, so this is safe to call outside a
-	// reactive/subscribed context — see node_modules/nanostores's atom
-	// `get()` implementation. `afterNavigate` fires on this component's
-	// mount AND after every subsequent client-side navigation (per
-	// SvelteKit's own doc comment on it), which covers both the initial
-	// render and every org/new → /org/[slug] (or org-edit) redirect.
+	// These atoms have their own client-side cache, separate from SvelteKit's
+	// load/invalidate — server-side mutations (the /org/new and /org/[slug]
+	// form actions) never refetch them, even though the redirect after one
+	// reruns `load`. `.get()` (not `$`-auto-subscription) reads the atom
+	// outside a reactive context; `afterNavigate` covers both initial mount
+	// and every subsequent client-side navigation.
 	afterNavigate(() => {
 		organizations.get().refetch();
 		activeOrganization.get().refetch();

@@ -1,8 +1,6 @@
-// Mocks Drizzle's fluent query builder rather than hitting real Postgres —
-// no integration-vs-real-Postgres test project exists yet (see HANDOVER.md).
-// Each chain is a plain object whose chained methods return itself and which
-// resolves (via a `then` method) to a canned result, so `await
-// db.select(...).from(...)....limit(1)` and friends work unmodified.
+// Mocks Drizzle's fluent query builder rather than hitting real Postgres (no
+// integration test project exists yet). Each chain is a plain object whose
+// methods return itself and resolves via `then` to a canned result.
 import { describe, it, expect, vi } from 'vitest';
 import type { DrizzleDb } from '$lib/server/db';
 import { getProfile, updateProfile } from './profile';

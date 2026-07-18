@@ -1,9 +1,5 @@
-// Profile domain: the type and the pure logic functions that operate on it.
-// No framework or infrastructure imports — safe to use from a form action,
-// a `load` function, AND (unlike the Next template, which shares this with a
-// "use client" component) potentially client-side Svelte code too, since
-// nothing here touches SvelteKit's server-only $lib/server boundary.
-// Ported from the Next.js sibling template's src/internal/domain/profile.ts.
+// No framework imports — usable from a form action, `load`, or client-side
+// Svelte code; nothing here touches the $lib/server boundary.
 import { strToDate } from '$lib/utils/date';
 import { str } from '$lib/utils/str';
 import { isHttpUrl } from '$lib/utils/url';
@@ -21,12 +17,10 @@ export type Profile = {
 export type ValidationResult =
 	{ ok: true; value: Profile } | { ok: false; errors: Partial<Record<Field, string>> };
 
-// Validate raw input (from a form) into a clean Profile, or a map of
-// per-field errors. Optional fields coerce empty/absent to null.
+// Optional fields coerce empty/absent to null.
 export function inputToProfile(input: Record<string, unknown>): ValidationResult {
 	const errors: Partial<Record<Field, string>> = {};
 
-	// name — required, 1–80 chars.
 	const name = str(input.name);
 	if (name.length === 0) {
 		errors.name = 'Name is required.';
@@ -34,7 +28,6 @@ export function inputToProfile(input: Record<string, unknown>): ValidationResult
 		errors.name = 'Name must be 80 characters or fewer.';
 	}
 
-	// image — optional; if present, must be an http(s) URL up to 2048 chars.
 	let image: string | null = null;
 	const rawImage = str(input.image);
 	if (rawImage.length > 0) {
@@ -45,7 +38,6 @@ export function inputToProfile(input: Record<string, unknown>): ValidationResult
 		}
 	}
 
-	// birthdate — optional; expect YYYY-MM-DD, a real calendar date in the past.
 	let birthdate: Date | null = null;
 	const rawBirthdate = str(input.birthdate);
 	if (rawBirthdate.length > 0) {
@@ -58,7 +50,6 @@ export function inputToProfile(input: Record<string, unknown>): ValidationResult
 		}
 	}
 
-	// bio — optional, up to 280 chars.
 	let bio: string | null = null;
 	const rawBio = str(input.bio);
 	if (rawBio.length > 280) {
@@ -67,7 +58,6 @@ export function inputToProfile(input: Record<string, unknown>): ValidationResult
 		bio = rawBio;
 	}
 
-	// location — optional, up to 120 chars.
 	let location: string | null = null;
 	const rawLocation = str(input.location);
 	if (rawLocation.length > 120) {

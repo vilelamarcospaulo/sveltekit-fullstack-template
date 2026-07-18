@@ -1,7 +1,5 @@
 import type { User, Session } from 'better-auth';
 
-// See https://svelte.dev/docs/kit/types#app.d.ts
-// for information about these interfaces
 declare global {
 	namespace App {
 		interface Platform {
@@ -15,10 +13,6 @@ declare global {
 			user?: User;
 			session?: Session;
 		}
-
-		// interface Error {}
-		// interface PageData {}
-		// interface PageState {}
 	}
 }
 

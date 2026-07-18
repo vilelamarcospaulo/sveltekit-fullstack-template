@@ -3,9 +3,6 @@ import { getDb } from '$lib/server/db';
 import { getProfile, updateProfile } from '$lib/internal/use_case/profile';
 import type { Actions, PageServerLoad } from './$types';
 
-// Guard: unauthenticated visitors land back on the home page, matching the
-// existing convention (event.locals.user is populated once per request by
-// src/hooks.server.ts).
 export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
 	if (!user) {
