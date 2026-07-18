@@ -116,6 +116,7 @@ Two independent Cloudflare Workers now (see "Background jobs" above for the seco
 - `pnpm run gen` regenerates `worker-configuration.d.ts` (the `Env` type) from `wrangler.jsonc` — rerun after changing bindings.
 - Hyperdrive: `wrangler.jsonc`'s `hyperdrive[0].id` is a placeholder — replace with the id `wrangler hyperdrive create` prints for a real deploy. Not needed for local dev (`localConnectionString` covers that).
 - `deploy/local/docker-compose.yaml` from the Next template became `compose.yaml` at the repo root here — that's `sv add drizzle`'s own convention (`pnpm run db:start` / `docker compose up -d`), not a deviation worth fighting.
+- `pnpm run deploy` (`pnpm run build && wrangler deploy`) / `pnpm run queue-worker:deploy` (`wrangler deploy --config wrangler.queue.jsonc`) — the actual production deploy commands, for parity with each other. Neither has been run against a real Cloudflare account yet — see `DEPLOYMENT.md` for the full one-time-setup runbook (Hyperdrive provisioning, queue creation, secrets) before using either for real.
 
 **Gotcha**: run `pnpm run check` _before_ `pnpm run build`, not after (without cleaning). `@sveltejs/adapter-cloudflare`'s ambient typings pull in whatever's currently at `.svelte-kit/cloudflare/_worker.js` / `.svelte-kit/cloudflare-tmp/manifest.js` — `tsconfig.json`'s `exclude` can't block this, since `exclude` only stops the initial glob-discovery, not files reached via a reference from an already-included file. Before a build, those paths don't exist and `check` is clean; after a build, the bundled (unstrict, non-`checkJs`-clean) output gets swept into the type-check and produces dozens of spurious implicit-`any` errors that have nothing to do with your source. If you hit this, `rm -rf .svelte-kit/cloudflare .svelte-kit/cloudflare-tmp` and rerun `check`.
 
@@ -134,8 +135,10 @@ No integration-vs-real-Postgres project yet, and no Miniflare-backed Workers-run
 
 ## What's deferred (not in this phase)
 
-- Full Vitest project matrix (integration-vs-real-Postgres, Miniflare worker/app-worker projects) and CI (GitHub Actions).
-- shadcn-svelte components beyond `button` (avatar, dropdown-menu, card, etc.) — added as later features need them.
+- Real per-feature unit/integration test coverage — `.github/workflows/ci.yaml` runs `lint`/`check`/`test`/`build` on every push, but the test suite itself is still just the two example tests `sv add vitest` scaffolded (`src/lib/vitest-examples/`). None of profile/org/jobs have actual automated tests; they were verified via `check`+`lint`+`build`+manual `curl`/dev-server smoke tests during development, not test files.
+- Integration-vs-real-Postgres and Miniflare worker/app-worker Vitest projects (the Next.js sibling template's `integration`/`worker`/`app-worker` test projects) — no equivalent exists here yet.
+- Actual deployment to a real Cloudflare account — see `DEPLOYMENT.md`. The build/deploy pipeline is proven (`pnpm run build`, `wrangler dev` previews, the queue worker's `--dry-run`), but nobody has run `pnpm run deploy` / `pnpm run queue-worker:deploy` for real yet, and CI does not deploy automatically (by design — see `DEPLOYMENT.md`'s "Known gaps").
+- shadcn-svelte components beyond `button`/`avatar`/`dropdown-menu` (card, input, label, textarea, etc.) — added as later features need them.
 
 ## Conventions
 

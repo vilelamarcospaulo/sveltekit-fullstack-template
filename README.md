@@ -72,11 +72,11 @@ Open [http://localhost:5173](http://localhost:5173).
 
 ## Deployment
 
-Deploys to a single Cloudflare Worker via `@sveltejs/adapter-cloudflare` (`wrangler.jsonc`). Postgres access goes through a Hyperdrive binding in production — replace the placeholder `id` in `wrangler.jsonc`'s `hyperdrive` block with the one `wrangler hyperdrive create` prints for your database before deploying for real.
+Two independent Cloudflare Workers — the app (`wrangler.jsonc`, via `@sveltejs/adapter-cloudflare`) and the Cloudflare Queues consumer (`wrangler.queue.jsonc`). See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for the full production runbook (Hyperdrive provisioning, queue creation, secrets, deploy order) — nothing has been deployed to a real Cloudflare account yet, so treat that doc as required reading before your first deploy, not a formality.
 
 ```bash
-pnpm run build
-pnpm exec wrangler deploy
+pnpm run queue-worker:deploy
+pnpm run deploy
 ```
 
 ## Learn more

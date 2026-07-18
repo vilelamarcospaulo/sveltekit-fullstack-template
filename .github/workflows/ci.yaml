@@ -21,11 +21,11 @@ env:
   # container below — nothing in the current test/build pipeline actually
   # queries it (no integration-vs-real-Postgres test project exists yet —
   # see CLAUDE.md's "What's deferred"), but it's set for when that lands.
-  DATABASE_URL: "postgres://root:mysecretpassword@localhost:5432/local"
-  ORIGIN: "http://localhost:5173"
-  BETTER_AUTH_SECRET: "ci-dummy-secret-not-used-for-anything-real"
-  GOOGLE_CLIENT_ID: "ci-dummy-client-id"
-  GOOGLE_CLIENT_SECRET: "ci-dummy-client-secret"
+  DATABASE_URL: 'postgres://root:mysecretpassword@localhost:5432/local'
+  ORIGIN: 'http://localhost:5173'
+  BETTER_AUTH_SECRET: 'ci-dummy-secret-not-used-for-anything-real'
+  GOOGLE_CLIENT_ID: 'ci-dummy-client-id'
+  GOOGLE_CLIENT_SECRET: 'ci-dummy-client-secret'
 
 jobs:
   app:
@@ -37,7 +37,7 @@ jobs:
         # Each entry maps to a script in package.json. "lint" already covers
         # both prettier --check and eslint (see package.json), unlike the
         # Next.js sibling template which lists them as separate tasks.
-        task: ["lint", "check", "test", "build"]
+        task: ['lint', 'check', 'test', 'build']
     # GitHub Actions services apply to the whole job regardless of matrix
     # value, so lint/check/build also get an (unused today) postgres
     # container — acceptable, since it's cheap and keeps this workflow
@@ -61,13 +61,13 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: "11.5.2"
+          version: '11.5.2'
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version: '24'
           # Caches the pnpm store keyed on pnpm-lock.yaml's hash.
-          cache: "pnpm"
+          cache: 'pnpm'
 
       # --frozen-lockfile is reproducible (installs exactly what's in
       # pnpm-lock.yaml, never touches it) and fails fast if the lockfile
@@ -97,12 +97,12 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: "11.5.2"
+          version: '11.5.2'
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "24"
-          cache: "pnpm"
+          node-version: '24'
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
