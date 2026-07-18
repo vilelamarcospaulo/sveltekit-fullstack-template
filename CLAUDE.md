@@ -13,10 +13,13 @@ Sibling scaffold to `../nextjs-fullstack-template`: same core idea (auth, Postgr
 
 ## Architecture
 
-No `domain`/`use_case` layering yet (unlike the Next template) — foundation has no business logic beyond auth wiring, so there's nothing to isolate from the framework yet. That layering returns once profile CRUD / org multi-tenancy land (a `$lib/internal/domain` + `$lib/internal/use_case` split, mirroring the Next template's `src/internal/`).
+`domain`/`use_case` layering (mirroring the Next template's `src/internal/`) landed with the profile feature — see "Profile" below for the SvelteKit-specific deviation in the use_case signatures. Future business-logic features (org, queues) should follow the same split rather than putting logic directly in `src/routes/`.
 
+- `src/lib/internal/domain/` — pure types + validators, no framework/IO imports (e.g. `domain/profile.ts`'s `inputToProfile()` returns `{ok:true,value}|{ok:false,errors}`).
+- `src/lib/internal/use_case/` — orchestrates domain + infra (Drizzle); still no SvelteKit imports.
+- `src/lib/utils/` — small pure helpers with no dependencies on the layers above (`date.ts`, `str.ts`, `url.ts`) — separate from `src/lib/utils.ts`, which holds the unrelated shadcn-svelte `cn()` helper.
 - `src/lib/server/` — infra, compiler-enforced server-only (SvelteKit blocks any client-side import of this path — stronger than the Next template's convention-based `src/lib` separation):
-  - `db/index.ts` — `getDb(platform?)`, `db/schema.ts` (app-owned tables, currently empty) + `db/auth.schema.ts` (better-auth-owned tables, generated — see below).
+  - `db/index.ts` — `getDb(platform?)`, `db/schema.ts` (app-owned tables, e.g. `profile`) + `db/auth.schema.ts` (better-auth-owned tables, generated — see below).
   - `auth.ts` — `getAuth(platform?)`.
   - `env.ts` — validated env reader.
   - `logger.ts` — dependency-free JSON console logger.
@@ -63,9 +66,18 @@ Same Hyperdrive-first/`DATABASE_URL`-fallback pattern as the Next template, adap
 
 - `src/lib/server/db/index.ts` exports `getDb(platform?: App.Platform): DrizzleDb` — never a cached singleton. A deployed Worker resolves `platform.env.HYPERDRIVE.connectionString`; everywhere else (Vitest, `drizzle-kit`, or `vite dev` if the binding isn't resolved) falls back to `$env/dynamic/private`'s `DATABASE_URL`.
 - Driver: `drizzle-orm/postgres-js` (the `postgres` package), not `pg` — both work over Hyperdrive, this is just what `sv add drizzle` scaffolded. `nodejs_compat` is in `wrangler.jsonc`'s `compatibility_flags` because `postgres` needs Node's `net`/`tls` shims under `workerd`.
-- Schema: `src/lib/server/db/schema.ts` re-exports `auth.schema.ts` (generated, see above) plus any app-owned tables (none yet).
+- Schema: `src/lib/server/db/schema.ts` re-exports `auth.schema.ts` (generated, see above) plus app-owned tables (`profile`, see "Profile" below).
 - Config: `drizzle.config.ts`.
-- Migrations/schema push: `pnpm run db:generate` + `db:migrate` (versioned SQL migrations) or `pnpm run db:push` (direct schema push, no migration files — faster for early-stage local iteration). `pnpm run db:studio` opens Drizzle Studio.
+- Migrations/schema push: `pnpm run db:generate` + `db:migrate` (versioned SQL migrations) or `pnpm run db:push` (direct schema push, no migration files — faster for early-stage local iteration; non-interactively, e.g. via Bash with no TTY, use `pnpm exec drizzle-kit push --force` to skip the confirmation prompt). `pnpm run db:studio` opens Drizzle Studio.
+
+## Profile
+
+The first feature to use the `domain`/`use_case` layering (see "Architecture" above) — a 1-1 extension of `user` (which already carries `name`/`image` from better-auth) with `birthdate`/`bio`/`location`.
+
+- **Schema**: `profile` pgTable in `src/lib/server/db/schema.ts` (hand-written, unlike the generated `auth.schema.ts` alongside it) — `id` (text PK, app-generated via `@paralleldrive/cuid2`'s `createId()`, not DB-generated), `userId` (FK to `user.id`, cascade delete, unique index `profile_user_id_key` so it's a true 1-1 and so `updateProfile`'s upsert has a conflict target), `birthdate` (`date()` column, timezone-less — see `src/lib/utils/date.ts`'s doc comment for why both directions of the YYYY-MM-DD ⇄ Date conversion anchor to UTC), `bio`, `location`, `createdAt`/`updatedAt`.
+- **Domain**: `src/lib/internal/domain/profile.ts` — `inputToProfile()` validates raw form input into a `Profile` or a per-field error map (name required ≤80 chars; image optional http(s) URL ≤2048 chars; birthdate optional, real calendar date, year ≥1900 and not in the future; bio optional ≤280 chars; location optional ≤120 chars). Zero framework imports, ported rule-for-rule from the Next template's `internal/domain/profile.ts`, backed by three small pure helpers ported into `src/lib/utils/` (`date.ts`, `str.ts`, `url.ts` — kept separate from the pre-existing `src/lib/utils.ts`, which holds the unrelated shadcn-svelte `cn()` helper).
+- **Use case**: `src/lib/internal/use_case/profile.ts` — `getProfile(db, userId)` / `updateProfile(db, userId, input)`, returning a `ProfileView` (birthdate serialised as YYYY-MM-DD). **Deviation from the Next template's use_case signatures**: there, `getDb()` is context-free (Next's `getCloudflareContext()` works anywhere), so the use case resolves the db client internally. Here, `getDb(platform?: App.Platform)` needs SvelteKit's request-scoped `event.platform`, which only exists in route code (`+page.server.ts`, a form action, `+server.ts`) — threading `platform` (or `App.Platform`) into this framework-free internal layer would leak a SvelteKit/Cloudflare-specific type into it. So every function here takes an already-resolved **`db: DrizzleDb`** (the type from `$lib/server/db`) as its first parameter instead of a `platform` param; the caller does `const db = getDb(event.platform)` and passes the result in. **Follow this same `db`-not-`platform` convention for future use_case layers** (org, queues) — it's the one non-obvious SvelteKit-specific adaptation of the Next template's architecture.
+- **Route**: `src/routes/profile/+page.server.ts` — `load` redirects unauthenticated visitors to `/` (`event.locals.user`, same convention as elsewhere), otherwise calls `getDb(event.platform)` + `getProfile(db, userId)` to prefill the form. `actions.default` parses `await request.formData()`, calls `updateProfile(db, userId, input)`, and returns `fail(400, { errors, values })` on validation failure — a native `<form method="post" use:enhance>` in `src/routes/profile/+page.svelte`, not a client-side fetch to a JSON API (unlike the Next template's `profile-form.tsx`, which `PUT`s `/api/profile` from a "use client" component) — per this project's form-actions-over-client-API-calls convention.
 
 ## Deployment
 
@@ -95,7 +107,6 @@ No integration-vs-real-Postgres project yet, and no Miniflare-backed Workers-run
 ## What's deferred (not in this phase)
 
 - `organization`/`member`/`invitation` schema + better-auth's organization plugin, org switcher UI.
-- Profile CRUD (`$lib/internal/domain`/`use_case` layers, `/profile` route, API route) — and with it, the `domain`/`use_case` architectural split.
 - Cloudflare Queues demo: job domain/use_case, producer client, a second independently-deployed Worker for the consumer, traceId propagation.
 - Full Vitest project matrix (integration-vs-real-Postgres, Miniflare worker/app-worker projects) and CI (GitHub Actions).
 - shadcn-svelte components beyond `button` (avatar, dropdown-menu, card, etc.) — added as later features need them.
