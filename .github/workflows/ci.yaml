@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs for the same ref (e.g. rapid pushes to a PR branch).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # src/lib/server/env.ts's getEnv() validates BETTER_AUTH_SECRET/ORIGIN/
+  # GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET on first call and throws if any is
+  # empty, and `wrangler types --check` (part of `pnpm run check`/`build`)
+  # needs these var *names* to exist somewhere for the generated Env type to
+  # match what's committed in worker-configuration.d.ts. CI never talks to
+  # real Google or a real deployed Worker, so dummy non-empty values are
+  # sufficient everywhere. DATABASE_URL matches the Postgres service
+  # container below — nothing in the current test/build pipeline actually
+  # queries it (no integration-vs-real-Postgres test project exists yet —
+  # see CLAUDE.md's "What's deferred"), but it's set for when that lands.
+  DATABASE_URL: "postgres://root:mysecretpassword@localhost:5432/local"
+  ORIGIN: "http://localhost:5173"
+  BETTER_AUTH_SECRET: "ci-dummy-secret-not-used-for-anything-real"
+  GOOGLE_CLIENT_ID: "ci-dummy-client-id"
+  GOOGLE_CLIENT_SECRET: "ci-dummy-client-secret"
+
+jobs:
+  app:
+    name: ${{ matrix.task }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each entry maps to a script in package.json. "lint" already covers
+        # both prettier --check and eslint (see package.json), unlike the
+        # Next.js sibling template which lists them as separate tasks.
+        task: ["lint", "check", "test", "build"]
+    # GitHub Actions services apply to the whole job regardless of matrix
+    # value, so lint/check/build also get an (unused today) postgres
+    # container — acceptable, since it's cheap and keeps this workflow
+    # simple (same reasoning as the Next.js sibling template's CI).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: mysecretpassword
+          POSTGRES_DB: local
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11.5.2"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          # Caches the pnpm store keyed on pnpm-lock.yaml's hash.
+          cache: "pnpm"
+
+      # --frozen-lockfile is reproducible (installs exactly what's in
+      # pnpm-lock.yaml, never touches it) and fails fast if the lockfile
+      # drifts from package.json.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Only the "test" task's Vitest "client" project needs a real browser
+      # (@vitest/browser-playwright) — installing it for the other three
+      # matrix legs would just burn CI time on an unused download.
+      - name: Install Playwright Chromium
+        if: matrix.task == 'test'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run ${{ matrix.task }}
+        run: pnpm run ${{ matrix.task }}
+
+  # Confirms the independently-deployed Cloudflare Queues consumer Worker
+  # (src/worker/, wrangler.queue.jsonc) still bundles cleanly on every
+  # change — a `--dry-run` deploy, no real Cloudflare account or credentials
+  # needed, nothing is actually deployed.
+  queue-worker:
+    name: queue-worker bundle check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11.5.2"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Dry-run deploy (bundle check only)
+        run: pnpm exec wrangler deploy --config wrangler.queue.jsonc --dry-run

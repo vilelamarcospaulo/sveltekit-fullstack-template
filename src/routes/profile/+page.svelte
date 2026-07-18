@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
+	import ProfileApiDemo from '$lib/components/profile-api-demo.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -155,4 +156,6 @@
 			</Button>
 		</div>
 	</form>
+
+	<ProfileApiDemo initial={data.profile} />
 </div>
