@@ -30,7 +30,10 @@ export const actions: Actions = {
 		// Root of a new job chain — a fresh traceId is minted here and carried
 		// forward by every job it spawns.
 		const traceId = newTraceId();
-		const result = await enqueueHelloJob({ message }, { traceId, sendJob });
+		const result = await enqueueHelloJob(
+			{ message },
+			{ traceId, sendJob, queueBinding: event.platform?.env.HELLO_QUEUE }
+		);
 
 		if (!result.ok) {
 			return fail(400, { errors: result.errors });

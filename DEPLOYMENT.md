@@ -7,7 +7,7 @@ This app deploys to two independent Cloudflare Workers — no Docker/VPS path. `
 
 For local development, see `README.md`'s "Getting started" — this doc is production-deployment only.
 
-**Status as of this writing: not yet deployed anywhere.** Everything below has been verified locally (`pnpm run build`, `wrangler dev` previews, `wrangler deploy --dry-run` for the worker) but never run against a real Cloudflare account. Every step in this doc requires your Cloudflare account access, which I don't have — this is a runbook for you (or whoever deploys) to follow, not something I can complete unattended.
+**Status as of this writing: deployed.** The app Worker and the Queues consumer Worker are both live on Cloudflare, sharing a Neon Postgres database via Hyperdrive. This doc is kept as the runbook for redeploying from scratch (a fresh Cloudflare account, or after the kind of full cleanup this repo went through once already).
 
 ## One-time setup
 
@@ -52,13 +52,7 @@ pnpm exec wrangler secret put ORIGIN
 
 Also update the Google OAuth client's **Authorized redirect URI** and **Authorized JS origin** in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) to match your production `ORIGIN` (they're currently only configured for `http://localhost:5173`).
 
-**Only if using the real-Cloudflare-account path for the async-job demo** (as opposed to the local-dev-only `QUEUE_LOCAL_PUSH_URL` bridge — see `.env.example`'s "Option B"):
-
-```bash
-pnpm exec wrangler secret put CLOUDFLARE_ACCOUNT_ID
-pnpm exec wrangler secret put CLOUDFLARE_API_TOKEN        # needs "Queues Edit" permission
-pnpm exec wrangler secret put CLOUDFLARE_HELLO_QUEUE_ID   # the *id* wrangler queues create printed, not the name "hello"
-```
+The async-job demo needs no separate secrets in production: `wrangler.jsonc` declares a native `HELLO_QUEUE` producer binding, which `src/lib/server/queue.ts`'s `sendJob` uses directly once the "hello" queue exists (step 3 above) — `QUEUE_LOCAL_PUSH_URL` is a `vite dev`-only fallback (see `.env.example`) and should stay unset in production.
 
 ### 5. Apply the database schema against production Postgres
 

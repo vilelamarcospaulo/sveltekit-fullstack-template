@@ -23,13 +23,22 @@
 	"hyperdrive": [
 		{
 			"binding": "HYPERDRIVE",
-			// Placeholder — replace with the id `wrangler hyperdrive create` prints
-			// for a real deploy (not needed for local dev; localConnectionString
-			// below is used instead whenever no live Cloudflare context exists).
-			"id": "00000000000000000000000000000000",
+			"id": "e12c1de32b5e46a491370811ac59b24a",
 			"localConnectionString": "postgres://root:mysecretpassword@localhost:5433/local"
 		}
 	],
+	// Native producer binding for the "hello" queue (see
+	// src/lib/server/queue.ts's sendJob) — only resolves in a deployed Worker
+	// or real `wrangler dev`, not plain `vite dev` (same as the HYPERDRIVE
+	// binding above); local dev instead uses QUEUE_LOCAL_PUSH_URL.
+	"queues": {
+		"producers": [
+			{
+				"queue": "hello",
+				"binding": "HELLO_QUEUE"
+			}
+		]
+	},
 	"workers_dev": true,
 	"preview_urls": true
 }

@@ -1,17 +1,16 @@
-// Sends via Cloudflare's HTTP API (queues.messages.push), not a native
-// producer binding — this app's wrangler.jsonc doesn't declare one; the
-// consumer Worker (src/worker/) never imports this file, so it's safe to use
-// "$env/dynamic/private" here. Uses its own env reads instead of getEnv()
-// (env.ts), which hard-requires Google OAuth vars this producer doesn't need.
+// Native producer binding (wrangler.jsonc's HELLO_QUEUE) is the real
+// transport — only resolves in a deployed Worker or real `wrangler dev`.
+// Plain `vite dev` never populates platform.env (same as HYPERDRIVE, see
+// src/lib/server/db/index.ts), so it falls back to QUEUE_LOCAL_PUSH_URL: a
+// plain fetch against the consumer Worker's own local-only push simulation
+// (src/worker/index.ts), since `vite dev` and the consumer's `wrangler dev`
+// are separate processes with no shared queue state. Uses its own env read
+// instead of getEnv() (env.ts), which hard-requires Google OAuth vars this
+// producer doesn't need.
 import { env } from '$env/dynamic/private';
 import type { JobEnvelope } from '../internal/domain/jobs.ts';
-import Cloudflare from 'cloudflare';
+import type { Queue } from '@cloudflare/workers-types';
 
-// Local-dev escape hatch (QUEUE_LOCAL_PUSH_URL, see .env.example): `vite dev`
-// and the consumer Worker's `wrangler dev` are separate processes with no
-// shared queue state, so this POSTs directly to src/worker/index.ts's
-// fetch() handler instead of the real Cloudflare API — no Cloudflare account
-// needed locally. Leave unset for a real deploy.
 async function sendJobToLocalPushUrl<T extends object>(
 	localPushUrl: string,
 	payload: T,
@@ -40,15 +39,23 @@ async function sendJobToLocalPushUrl<T extends object>(
 	}
 }
 
-// `queueName` is accepted but unused — CLOUDFLARE_HELLO_QUEUE_ID always
-// addresses the "hello" queue; a real multi-queue setup would need a
-// name -> queue-id lookup, not built since there's only one job type.
+// `queueName` is accepted but unused — the injected `queueBinding` (or, for
+// local dev, QUEUE_LOCAL_PUSH_URL) always addresses the "hello" queue; a
+// real multi-queue setup would need a name -> binding lookup, not built
+// since there's only one job type.
 export async function sendJob<T extends object>(
 	queueName: string,
 	payload: T,
-	traceId: string
+	traceId: string,
+	queueBinding?: Queue<JobEnvelope<T>>
 ): Promise<void> {
 	void queueName;
+
+	if (queueBinding) {
+		const envelope: JobEnvelope<T> = { payload, traceId };
+		await queueBinding.send(envelope);
+		return;
+	}
 
 	const localPushUrl = env.QUEUE_LOCAL_PUSH_URL;
 	if (localPushUrl) {
@@ -56,25 +63,10 @@ export async function sendJob<T extends object>(
 		return;
 	}
 
-	const envelope: JobEnvelope<T> = { payload, traceId };
-
-	const accountId = env.CLOUDFLARE_ACCOUNT_ID;
-	const apiToken = env.CLOUDFLARE_API_TOKEN;
-	const queueId = env.CLOUDFLARE_HELLO_QUEUE_ID;
-
-	if (!accountId || !apiToken || !queueId) {
-		throw new Error(
-			'No queue transport configured. Set QUEUE_LOCAL_PUSH_URL for local dev ' +
-				'(see .env.example, paired with `pnpm run worker:dev`), or set ' +
-				'CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_API_TOKEN/CLOUDFLARE_HELLO_QUEUE_ID ' +
-				'for a real deploy.'
-		);
-	}
-
-	const client = new Cloudflare({ apiToken });
-	await client.queues.messages.push(queueId, {
-		account_id: accountId,
-		body: envelope,
-		content_type: 'json'
-	});
+	throw new Error(
+		'No queue transport configured. In a deployed Worker (or real `wrangler dev`), ' +
+			"pass platform.env.HELLO_QUEUE as sendJob's 4th argument — wrangler.jsonc " +
+			'already declares that producer binding. For plain `vite dev`, set ' +
+			'QUEUE_LOCAL_PUSH_URL instead (see .env.example, paired with `pnpm run worker:dev`).'
+	);
 }
