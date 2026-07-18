@@ -1,0 +1,67 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	// Cloudflare Worker config for this app's Cloudflare Queues consumer —
+	// deliberately a SEPARATE config from the app's own wrangler.jsonc (a
+	// second, independently-deployed Worker), named wrangler.queue.jsonc
+	// rather than the Next.js sibling template's wrangler.toml so the two
+	// configs at this repo's root stay unambiguous at a glance and JSONC
+	// matches this project's existing config format.
+	//
+	// In production, src/lib/server/queue.ts (the SvelteKit app) is the only
+	// producer, and it pushes messages via Cloudflare's real HTTP API (the
+	// `cloudflare` SDK, authenticated with an API token) — it does NOT go
+	// through this Worker; see that file's header comment for why (the app's
+	// own wrangler.jsonc is off-limits to this feature, so there's no producer
+	// *binding* option here the way the Next.js template has). The
+	// [[queues.producers]] binding below exists purely so this same Worker can
+	// also simulate that HTTP push *locally*: its fetch() handler
+	// (src/worker/index.ts) forwards a POST body onto the HELLO_QUEUE binding,
+	// which `wrangler dev` runs entirely through Miniflare — no real
+	// Cloudflare account, login, or deployed queue needed for local dev. That
+	// fetch handler is gated behind LOCAL_DEV_PUSH_ENABLED, which is only ever
+	// set via the gitignored .dev.vars (see .dev.vars.example) — `wrangler
+	// deploy` never reads .dev.vars, so a real deployment never exposes it.
+	//
+	// max_retries = 5 / max_batch_size = 5 are reasonable demo defaults for a
+	// short-lived simulated job (see src/lib/internal/use_case/jobs.ts's
+	// processHelloJob). The "hello-dlq" consumer has max_retries = 0 and no
+	// further dead_letter_queue — it's a terminal sink, purely for visibility
+	// (src/worker/index.ts logs "job_dead_lettered" and acks, never
+	// reprocesses).
+	//
+	// One-time setup required before a real (non-local) deploy:
+	//   wrangler queues create hello
+	//   wrangler queues create hello-dlq
+	"name": "sveltekit-fullstack-template-queue-worker",
+	"main": "src/worker/index.ts",
+	// Matches wrangler.jsonc's compatibility_date at the repo root — see that
+	// file's own comment and CLAUDE.md's "Deployment" gotcha: if a locally
+	// installed workerd binary lags behind this date ("newest date supported
+	// by this server binary" error), back this off by a day or two for local
+	// `wrangler dev`/`deploy --dry-run` runs rather than treating it as a code
+	// bug.
+	"compatibility_date": "2026-07-17",
+	"observability": {
+		"enabled": true
+	},
+	"queues": {
+		"producers": [
+			{
+				"queue": "hello",
+				"binding": "HELLO_QUEUE"
+			}
+		],
+		"consumers": [
+			{
+				"queue": "hello",
+				"max_retries": 5,
+				"dead_letter_queue": "hello-dlq",
+				"max_batch_size": 5
+			},
+			{
+				"queue": "hello-dlq",
+				"max_retries": 0
+			}
+		]
+	}
+}
