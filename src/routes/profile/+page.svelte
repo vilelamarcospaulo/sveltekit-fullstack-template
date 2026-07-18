@@ -157,5 +157,5 @@
 		</div>
 	</form>
 
-	<ProfileApiDemo initial={data.profile} />
+	<ProfileApiDemo />
 </div>

@@ -2,6 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import SignInButton from '$lib/components/sign-in-button.svelte';
 	import JobDemo from '$lib/components/job-demo.svelte';
+	import ApiHelloDemo from '$lib/components/api-hello-demo.svelte';
 
 	let { data } = $props();
 </script>
@@ -21,7 +22,15 @@
 	{/if}
 </div>
 
-<div class="mx-auto max-w-md px-4 pb-16 sm:pb-24">
+<div class="mx-auto grid max-w-2xl gap-6 px-4 pb-16 sm:grid-cols-2 sm:pb-24">
+	<div class="rounded-lg border p-6">
+		<h2 class="mb-1 text-lg font-semibold">API Hello</h2>
+		<p class="mb-4 text-sm text-muted-foreground">
+			Call the <code class="font-mono text-xs">/api/hello</code> route handler and inspect the JSON response.
+		</p>
+		<ApiHelloDemo />
+	</div>
+
 	<div class="rounded-lg border p-6">
 		<h2 class="mb-1 text-lg font-semibold">Async Job</h2>
 		<p class="mb-4 text-sm text-muted-foreground">
