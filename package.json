@@ -58,6 +58,7 @@
 	},
 	"dependencies": {
 		"@paralleldrive/cuid2": "^3.3.0",
+		"bits-ui": "^2.18.1",
 		"class-variance-authority": "^0.7.1",
 		"cloudflare": "^7.0.0",
 		"clsx": "^2.1.1",

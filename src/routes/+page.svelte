@@ -5,7 +5,6 @@
 	import SignInButton from '$lib/components/sign-in-button.svelte';
 
 	let { data } = $props();
-
 	let signingOut = $state(false);
 
 	async function handleSignOut() {
