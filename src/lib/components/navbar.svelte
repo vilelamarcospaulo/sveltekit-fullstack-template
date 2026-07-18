@@ -148,11 +148,7 @@
 
 						<DropdownMenuSeparator />
 						<DropdownMenuItem>
-							<!-- /profile doesn't exist as a route in this worktree yet (owned by the
-								profile-CRUD branch, built in parallel) — resolve() can't type-check a
-								route id this branch's manifest doesn't have. Plain href until merge. -->
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-							<a href="/profile" class="w-full">Profile</a>
+							<a href={resolve('/profile')} class="w-full">Profile</a>
 						</DropdownMenuItem>
 						{#if $activeOrganization.data}
 							<DropdownMenuItem>
