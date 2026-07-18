@@ -29,4 +29,4 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # Claude Code parallel-agent worktrees (tooling-internal, not project source)
-.claude/
+.claude/worktrees
