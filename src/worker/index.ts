@@ -7,8 +7,9 @@
 // Relative imports with explicit ".ts": wrangler's esbuild bundling doesn't
 // resolve "$lib/*", and can't resolve SvelteKit virtual modules like
 // "$env/dynamic/private" at all (build hard-fails regardless of
-// tree-shaking) — see jobs.ts for why sendJob is injected rather than
-// imported here.
+// tree-shaking) — this only imports jobs.ts (processHelloJob), never the
+// producer side (enqueue_hello_job.ts), which is the one that reaches
+// $env/dynamic/private via $lib/server/queue.ts.
 import type { ExecutionContext, MessageBatch, Queue } from '@cloudflare/workers-types';
 import {
 	HELLO_DLQ,
