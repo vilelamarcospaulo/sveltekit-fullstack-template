@@ -1,0 +1,10 @@
+allowBuilds:
+  '@tailwindcss/oxide': true
+  workerd: true
+  sharp: true
+  esbuild: true
+  # Both are optional deps of drizzle-kit for DB drivers this project doesn't
+  # use (Postgres only, via "postgres" / postgres.js) — no need to run their
+  # native build scripts.
+  '@prisma/client': false
+  better-sqlite3: false

@@ -1,0 +1,33 @@
+{
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"rewriteRelativeImportExtensions": true,
+		"allowJs": true,
+		"checkJs": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"moduleResolution": "bundler",
+		"types": ["./worker-configuration.d.ts"]
+	},
+	// "exclude" here fully replaces (not merges with) the extended
+	// .svelte-kit/tsconfig.json's own "exclude" — TypeScript doesn't merge
+	// include/exclude/files across `extends`. Repeats that base list and adds
+	// .svelte-kit/cloudflare/** (adapter-cloudflare's build output — bundled
+	// JS, not source, and svelte-check's file discovery doesn't respect the
+	// generated config's "include" allowlist the way tsc does, so it gets
+	// swept in and type-checked as if it were our code unless excluded here).
+	"exclude": [
+		"node_modules/**",
+		"src/service-worker.js",
+		"src/service-worker/**/*.js",
+		"src/service-worker.ts",
+		"src/service-worker/**/*.ts",
+		"src/service-worker.d.ts",
+		"src/service-worker/**/*.d.ts",
+		".svelte-kit/cloudflare/**"
+	]
+}

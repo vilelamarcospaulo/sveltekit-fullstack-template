@@ -1,0 +1,35 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "sveltekit-fullstack-template",
+	"compatibility_date": "2026-07-17",
+	// nodejs_als: async local storage, needed by SvelteKit's getRequestEvent()
+	// (used by better-auth's sveltekitCookies plugin, see src/lib/server/auth.ts).
+	// nodejs_compat: needed by the "postgres" driver (src/lib/server/db/index.ts)
+	// for its Node net/tls shims under workerd — same requirement as Cloudflare's
+	// own Hyperdrive + postgres.js examples.
+	"compatibility_flags": ["nodejs_als", "nodejs_compat"],
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	// Postgres access via Hyperdrive (see src/lib/server/db/index.ts's getDb()) —
+	// same approach as the Next.js sibling template. localConnectionString below
+	// matches compose.yaml's local Postgres credentials, so `vite dev` and
+	// `wrangler dev` both resolve a working connection with zero extra setup.
+	// Override per-environment via
+	// CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE if your local
+	// Postgres uses a different URL.
+	"hyperdrive": [
+		{
+			"binding": "HYPERDRIVE",
+			// Placeholder — replace with the id `wrangler hyperdrive create` prints
+			// for a real deploy (not needed for local dev; localConnectionString
+			// below is used instead whenever no live Cloudflare context exists).
+			"id": "00000000000000000000000000000000",
+			"localConnectionString": "postgres://root:mysecretpassword@localhost:5433/local"
+		}
+	],
+	"workers_dev": true,
+	"preview_urls": true
+}
