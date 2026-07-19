@@ -12,7 +12,7 @@
 // or `wrangler deploy --dry-run`). Uses its own env read instead of getEnv()
 // (env.ts), which hard-requires Google OAuth vars this producer doesn't need.
 import { env } from '$env/dynamic/private';
-import { HELLO_QUEUE, type JobEnvelope } from '$lib/internal/domain/jobs';
+import { HELLO_QUEUE, type JobEnvelope } from '$lib/internal/ports/jobs';
 import type { Queue } from '@cloudflare/workers-types';
 
 async function sendJobToLocalPushUrl<T extends object>(

@@ -4,7 +4,7 @@ const mockEnv: { QUEUE_LOCAL_PUSH_URL?: string } = {};
 vi.mock('$env/dynamic/private', () => ({ env: mockEnv }));
 
 const { sendJob } = await import('./queue');
-const { HELLO_QUEUE } = await import('$lib/internal/domain/jobs');
+const { HELLO_QUEUE } = await import('$lib/internal/ports/jobs');
 
 describe('sendJob', () => {
 	beforeEach(() => {

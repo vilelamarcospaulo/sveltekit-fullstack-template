@@ -4,7 +4,7 @@
 // producer side (enqueueHelloJob) lives in enqueue_hello_job.ts instead —
 // split out precisely so it's never reachable from src/worker/index.ts and
 // can freely import $lib/server/queue.ts (see that file's module header).
-import type { HelloJobPayload } from '../domain/jobs.ts';
+import type { HelloJobPayload } from '../ports/jobs.ts';
 
 // Structural subset both the app logger and worker/logger.ts's
 // createJobLogger satisfy — this file depends on neither implementation.

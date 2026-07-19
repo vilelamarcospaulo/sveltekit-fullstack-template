@@ -3,7 +3,7 @@
 // file is free to use the "$lib/*" alias and to statically import
 // $lib/server/queue.ts (which itself imports the SvelteKit-only virtual
 // module "$env/dynamic/private" — see queue.ts's module header).
-import { HELLO_QUEUE, parseHelloJobPayload } from '$lib/internal/domain/jobs';
+import { HELLO_QUEUE, parseHelloJobPayload } from '$lib/internal/ports/jobs';
 import { sendJob } from '$lib/server/queue';
 import { newTraceId } from '$lib/server/trace';
 

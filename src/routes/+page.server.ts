@@ -3,8 +3,8 @@ import type { Actions } from './$types';
 import { enqueueHelloJob } from '$lib/internal/use_case/enqueue_hello_job';
 import { newTraceId } from '$lib/server/trace';
 
-// Form-layer bound, tighter than the domain schema's 500-char max
-// (domain/jobs.ts).
+// Form-layer bound, tighter than the port schema's 500-char max
+// (ports/jobs.ts).
 const MAX_JOB_MESSAGE_LENGTH = 200;
 
 // Named action matching job-demo.svelte's `action="/?/submitHelloJob"`.

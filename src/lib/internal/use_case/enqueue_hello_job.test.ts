@@ -4,7 +4,7 @@ const sendJobMock = vi.fn(async () => {});
 vi.mock('$lib/server/queue', () => ({ sendJob: sendJobMock }));
 
 const { enqueueHelloJob } = await import('./enqueue_hello_job');
-const { HELLO_QUEUE } = await import('$lib/internal/domain/jobs');
+const { HELLO_QUEUE } = await import('$lib/internal/ports/jobs');
 
 describe('enqueueHelloJob', () => {
 	it('returns validation errors and never calls sendJob on invalid input', async () => {

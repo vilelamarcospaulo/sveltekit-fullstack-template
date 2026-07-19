@@ -1,5 +1,8 @@
-// No framework/infra imports — used by both the use_case layer and the
-// standalone consumer Worker (both import via relative path, no "$lib/*").
+// Port, not domain: this is the message contract for the queue boundary
+// (envelope shape, queue names, payload schema) — not a business entity.
+// It only needs to be pure/framework-free because both sides of that
+// boundary (the use_case layer and the standalone consumer Worker) import
+// it, one via "$lib/*" and one via a relative path with no "$lib/*".
 import { z } from 'zod';
 
 // The demo "hello" queue proves the producer/consumer wiring end to end;

@@ -16,7 +16,7 @@ import {
 	HELLO_QUEUE,
 	type HelloJobPayload,
 	type JobEnvelope
-} from '../lib/internal/domain/jobs.ts';
+} from '../lib/internal/ports/jobs.ts';
 import { processHelloJob } from '../lib/internal/use_case/jobs.ts';
 import { createJobLogger } from './logger.ts';
 
