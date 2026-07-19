@@ -12,8 +12,10 @@
 // or `wrangler deploy --dry-run`). Uses its own env read instead of getEnv()
 // (env.ts), which hard-requires Google OAuth vars this producer doesn't need.
 import { env } from '$env/dynamic/private';
-import { HELLO_QUEUE, type JobEnvelope } from '$lib/internal/ports/jobs';
+import { HELLO_QUEUE, type JobEnvelope, type JobPort } from '$lib/internal/ports/jobs';
 import type { Queue } from '@cloudflare/workers-types';
+import type { ZodError } from 'zod';
+import { newTraceId } from './trace';
 
 async function sendJobToLocalPushUrl<T extends object>(
 	localPushUrl: string,
@@ -84,4 +86,45 @@ export async function sendJob<T extends object>(
 			'`vite dev`, set QUEUE_LOCAL_PUSH_URL instead (see .env.example, paired with ' +
 			'`pnpm run worker:dev`).'
 	);
+}
+
+export type EnqueueJobResult =
+	{ ok: true; traceId: string } | { ok: false; errors: Record<string, string> };
+
+// Zod's own issue messages ("Too small: expected string to have >=1
+// characters"), not job-specific copy — this is a generic fallback shared by
+// every JobPort, so it can't hand-write per-field wording the way a single
+// job's bespoke validator could. Callers needing friendlier UX validate more
+// tightly upstream (e.g. +page.server.ts's own MAX_JOB_MESSAGE_LENGTH check)
+// before ever reaching this. Keyed by each issue's top-level field name
+// (first path segment) — first issue per field wins.
+function extractFieldErrors(error: ZodError): Record<string, string> {
+	const errors: Record<string, string> = {};
+	for (const issue of error.issues) {
+		const field = String(issue.path[0] ?? 'input');
+		if (!(field in errors)) {
+			errors[field] = issue.message;
+		}
+	}
+	return errors;
+}
+
+// The one generic producer entry point for every queue: validate against the
+// port's schema, then hand off to sendJob for the envelope + transport. A
+// second job type is a new JobPort constant (ports/jobs.ts), not a new
+// use_case file — see CLAUDE.md's "Background jobs" section.
+export async function enqueueJob<T extends object>(
+	port: JobPort<T>,
+	input: unknown,
+	opts: { traceId?: string; platform?: App.Platform }
+): Promise<EnqueueJobResult> {
+	const parsed = port.schema.safeParse(input);
+	if (!parsed.success) {
+		return { ok: false, errors: extractFieldErrors(parsed.error) };
+	}
+
+	const traceId = opts.traceId ?? newTraceId();
+	await sendJob(port.queue, parsed.data, traceId, opts.platform);
+
+	return { ok: true, traceId };
 }

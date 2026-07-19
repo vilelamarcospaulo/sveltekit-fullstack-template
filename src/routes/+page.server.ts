@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions } from './$types';
-import { enqueueHelloJob } from '$lib/internal/use_case/enqueue_hello_job';
+import { HELLO_JOB_PORT } from '$lib/internal/ports/jobs';
+import { enqueueJob } from '$lib/server/queue';
 import { newTraceId } from '$lib/server/trace';
 
 // Form-layer bound, tighter than the port schema's 500-char max
@@ -29,7 +30,11 @@ export const actions: Actions = {
 		// Root of a new job chain — a fresh traceId is minted here and carried
 		// forward by every job it spawns.
 		const traceId = newTraceId();
-		const result = await enqueueHelloJob({ message }, { traceId, platform: event.platform });
+		const result = await enqueueJob(
+			HELLO_JOB_PORT,
+			{ message },
+			{ traceId, platform: event.platform }
+		);
 
 		if (!result.ok) {
 			return fail(400, { errors: result.errors });

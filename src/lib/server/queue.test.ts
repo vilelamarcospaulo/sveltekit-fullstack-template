@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockEnv: { QUEUE_LOCAL_PUSH_URL?: string } = {};
 vi.mock('$env/dynamic/private', () => ({ env: mockEnv }));
 
-const { sendJob } = await import('./queue');
-const { HELLO_QUEUE } = await import('$lib/internal/ports/jobs');
+const { sendJob, enqueueJob } = await import('./queue');
+const { HELLO_QUEUE, HELLO_JOB_PORT } = await import('$lib/internal/ports/jobs');
 
 describe('sendJob', () => {
 	beforeEach(() => {
@@ -83,5 +83,53 @@ describe('sendJob', () => {
 			/No queue transport configured for queue "unknown-queue"/
 		);
 		expect(send).not.toHaveBeenCalled();
+	});
+});
+
+describe('enqueueJob', () => {
+	beforeEach(() => {
+		delete mockEnv.QUEUE_LOCAL_PUSH_URL;
+		vi.unstubAllGlobals();
+	});
+
+	it('returns validation errors and never sends when the port schema rejects the input', async () => {
+		const send = vi.fn(async () => {});
+		const platform = { env: { HELLO_QUEUE: { send } } } as unknown as App.Platform;
+
+		const result = await enqueueJob(HELLO_JOB_PORT, { message: '' }, { platform });
+
+		expect(result).toEqual({ ok: false, errors: { message: expect.any(String) } });
+		expect(send).not.toHaveBeenCalled();
+	});
+
+	it('validates, envelopes, and dispatches through the port binding', async () => {
+		const send = vi.fn(async () => {});
+		const platform = { env: { HELLO_QUEUE: { send } } } as unknown as App.Platform;
+
+		const result = await enqueueJob(
+			HELLO_JOB_PORT,
+			{ message: 'hi' },
+			{ traceId: 'trace-1', platform }
+		);
+
+		expect(result).toEqual({ ok: true, traceId: 'trace-1' });
+		expect(send).toHaveBeenCalledExactlyOnceWith({
+			payload: { message: 'hi' },
+			traceId: 'trace-1'
+		});
+	});
+
+	it('generates a traceId when none is supplied', async () => {
+		const send = vi.fn(async () => {});
+		const platform = { env: { HELLO_QUEUE: { send } } } as unknown as App.Platform;
+
+		const result = await enqueueJob(HELLO_JOB_PORT, { message: 'hi' }, { platform });
+
+		expect(result.ok).toBe(true);
+		expect(result.ok && result.traceId).toEqual(expect.any(String));
+		expect(send).toHaveBeenCalledExactlyOnceWith({
+			payload: { message: 'hi' },
+			traceId: result.ok ? result.traceId : undefined
+		});
 	});
 });

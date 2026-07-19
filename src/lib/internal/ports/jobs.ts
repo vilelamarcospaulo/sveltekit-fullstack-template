@@ -25,23 +25,17 @@ export type JobEnvelope<T> = {
 	traceId: string;
 };
 
-export type ParseHelloJobPayloadResult =
-	{ ok: true; value: HelloJobPayload } | { ok: false; errors: Partial<Record<'message', string>> };
+// Declarative producer-side contract for one queue: which transport name it
+// maps to, and what shape a payload must have to be sent there. Pure data —
+// $lib/server/queue.ts's enqueueJob() is the one generic function that
+// consumes a JobPort to validate + envelope + dispatch, so adding a new
+// queue producer means adding one of these, not a new use_case file.
+export type JobPort<T extends object> = {
+	queue: string;
+	schema: z.ZodType<T>;
+};
 
-export function parseHelloJobPayload(input: unknown): ParseHelloJobPayloadResult {
-	const result = helloJobPayloadSchema.safeParse(input);
-	if (result.success) {
-		return { ok: true, value: result.data };
-	}
-
-	const fieldError = result.error.issues.find((issue) => issue.path[0] === 'message');
-
-	return {
-		ok: false,
-		errors: {
-			message: fieldError
-				? 'Message is required and must be 500 characters or fewer.'
-				: 'Invalid job payload.'
-		}
-	};
-}
+export const HELLO_JOB_PORT: JobPort<HelloJobPayload> = {
+	queue: HELLO_QUEUE,
+	schema: helloJobPayloadSchema
+};
